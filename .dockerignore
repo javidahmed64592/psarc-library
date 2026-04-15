@@ -1,3 +1,5 @@
+data/
+
 # Static
 static/
 
@@ -60,6 +62,11 @@ docker-compose.yml
 
 # Tests
 tests/
+
+# Frontend build artifacts
+psarc-library-frontend/node_modules/
+psarc-library-frontend/.next/
+psarc-library-frontend/out/
 
 # Miscellaneous
 .DS_Store
