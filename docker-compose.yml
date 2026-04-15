@@ -1,11 +1,11 @@
 services:
-  # Python Template Server
-  python-template-server:
-    image: ${IMAGE:-ghcr.io/javidahmed64592/python-template-server:latest}
+  # Psarc Library
+  psarc-library:
+    # image: ${IMAGE:-ghcr.io/javidahmed64592/psarc-library:latest}
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: python-template-server
+    container_name: psarc-library
     ports:
       - "${PORT:-443}:${PORT:-443}"
     environment:
