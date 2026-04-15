@@ -1,6 +1,6 @@
-## Python Template Server v{{VERSION}}
+## Psarc Library v{{VERSION}}
 
-**A template FastAPI server with production-ready configuration.**
+**A web interface for parsing and exploring Rocksmith psarc files.**
 
 ### Quick Start
 
