@@ -11,7 +11,7 @@ RUN apt-get update && apt-get install -y git && rm -rf /var/lib/apt/lists/*
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
 # Copy backend source files
-COPY python_template_server/ ./python_template_server/
+COPY psarc_library/ ./psarc_library/
 COPY pyproject.toml .here LICENSE README.md ./
 
 # Build the wheel
@@ -60,7 +60,7 @@ RUN echo '#!/bin/sh\n\
     export $(grep -v "^#" .env | xargs)\n\
     fi\n\
     \n\
-    exec python-template-server' > /app/start.sh && \
+    exec psarc-library' > /app/start.sh && \
     chmod +x /app/start.sh
 
 # Expose server port
