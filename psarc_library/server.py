@@ -31,7 +31,7 @@ class PsarcLibraryServer(TemplateServer):
         :return PsarcLibraryServerConfig: The validated configuration model
         :raise ValidationError: If the configuration data is invalid
         """
-        return PsarcLibraryServerConfig.model_validate(config_data)
+        return PsarcLibraryServerConfig.model_validate(config_data)  # type: ignore[no-any-return]
 
     def setup_routes(self) -> None:
         """Add custom API routes."""

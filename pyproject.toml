@@ -166,7 +166,6 @@ pretty = true
 [[tool.mypy.overrides]]
 module = [
     "psarc_library.*",
-    "pyhere.*",
     "python_template_server.*",
     "template_python.*",
 ]
