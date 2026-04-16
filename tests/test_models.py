@@ -4,7 +4,9 @@ import pytest
 
 from psarc_library.models import (
     PsarcData,
+    PsarcHeader,
     PsarcLibraryServerConfig,
+    PsarcTocEntry,
     SongData,
     Tuning,
     TuningDict,
@@ -13,7 +15,7 @@ from psarc_library.models import (
 )
 
 
-# Psarc Library Server Configuration Models
+# PSARC Library Server Configuration Models
 class TestPsarcLibraryServerConfig:
     """Unit tests for the PsarcLibraryServerConfig class."""
 
@@ -25,7 +27,7 @@ class TestPsarcLibraryServerConfig:
         assert isinstance(mock_psarc_library_server_config.model_dump(), dict)
 
 
-# Psarc Models
+# PSARC Models
 class TestTuningRoots:
     """Unit tests for the TuningRoots enumeration."""
 
@@ -128,6 +130,23 @@ class TestPsarcData:
         """Test the model_dump method."""
         for psarc_data in mock_psarc_data:
             assert isinstance(psarc_data.model_dump(), dict)
+
+
+# PSARC File Models
+class TestPsarcHeader:
+    """Unit tests for the PsarcHeader model."""
+
+    def test_model_dump(self, mock_psarc_header: PsarcHeader) -> None:
+        """Test the model_dump method."""
+        assert isinstance(mock_psarc_header.model_dump(), dict)
+
+
+class TestPsarcTocEntry:
+    """Unit tests for the PsarcTocEntry model."""
+
+    def test_model_dump(self, mock_psarc_toc_entry: PsarcTocEntry) -> None:
+        """Test the model_dump method."""
+        assert isinstance(mock_psarc_toc_entry.model_dump(), dict)
 
 
 # API Response Models

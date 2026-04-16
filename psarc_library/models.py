@@ -11,12 +11,12 @@ from python_template_server.models import TemplateServerConfig
 logger = logging.getLogger(__name__)
 
 
-# Psarc Library Configuration Models
+# PSARC Library Configuration Models
 class PsarcLibraryServerConfig(TemplateServerConfig):
-    """Psarc Library server configuration."""
+    """PSARC Library server configuration."""
 
 
-# Psarc Models
+# PSARC Models
 class TuningRoots(StrEnum):
     """Enumeration for tuning roots."""
 
@@ -172,6 +172,25 @@ class PsarcData(BaseModel):
                 psarc_data_list.append(psarc_data)
 
         return list(filter(cls.filter_psarc_data_function, psarc_data_list))
+
+
+# PSARC File Models
+class PsarcHeader(BaseModel):
+    """Model representing the header of a PSARC file."""
+
+    toc_length: int = Field(..., description="The length of the TOC in bytes.")
+    toc_entry_size: int = Field(..., description="The size of each TOC entry in bytes.")
+    toc_count: int = Field(..., description="The number of entries in the TOC.")
+    block_size: int = Field(..., description="The size of each data block in bytes.")
+    archive_flags: int = Field(..., description="Flags indicating properties of the PSARC archive.")
+
+
+class PsarcTocEntry(BaseModel):
+    """Model representing a single entry in the PSARC TOC."""
+
+    zindex: int = Field(..., description="The index of the compressed block containing the file data.")
+    length: int = Field(..., description="The uncompressed length of the file data in bytes.")
+    offset: int = Field(..., description="The offset of the file data from the start of the data blocks in bytes.")
 
 
 # API Response Models

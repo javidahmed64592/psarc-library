@@ -4,21 +4,23 @@ import pytest
 
 from psarc_library.models import (
     PsarcData,
+    PsarcHeader,
     PsarcLibraryServerConfig,
+    PsarcTocEntry,
     SongData,
     Tuning,
     TuningDict,
 )
 
 
-# Psarc Library Server Configuration Models
+# PSARC Library Server Configuration Models
 @pytest.fixture
 def mock_psarc_library_server_config() -> PsarcLibraryServerConfig:
     """Provide a mock PsarcLibraryServerConfig instance."""
     return PsarcLibraryServerConfig()
 
 
-# Psarc Models
+# PSARC Models
 @pytest.fixture
 def mock_tuning_dict_standard() -> TuningDict:
     """Provide a mock TuningDict instance for standard tuning."""
@@ -111,4 +113,27 @@ def mock_psarc_data(mock_psarc_manifest: dict, mock_psarc_manifest_no_entries: d
             mock_psarc_manifest,
             mock_psarc_manifest_no_entries,
         ],
+    )
+
+
+# PSARC File Models
+@pytest.fixture
+def mock_psarc_header() -> PsarcHeader:
+    """Provide a mock PsarcHeader instance."""
+    return PsarcHeader(
+        toc_length=32,
+        toc_entry_size=16,
+        toc_count=1,
+        block_size=4096,
+        archive_flags=4,
+    )
+
+
+@pytest.fixture
+def mock_psarc_toc_entry() -> PsarcTocEntry:
+    """Provide a mock PsarcTocEntry instance."""
+    return PsarcTocEntry(
+        zindex=0,
+        length=8192,
+        offset=4096,
     )
