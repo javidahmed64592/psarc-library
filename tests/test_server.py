@@ -1,4 +1,4 @@
-"""Unit tests for the python_template_server.template_server module."""
+"""Unit tests for the psarc_library.server module."""
 
 from __future__ import annotations
 

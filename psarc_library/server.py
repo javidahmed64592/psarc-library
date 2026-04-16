@@ -1,4 +1,4 @@
-"""Psarc Library server implementation using the TemplateServer base class."""
+"""PSARC Library server implementation using the TemplateServer base class."""
 
 import logging
 from typing import Any
@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 
 
 class PsarcLibraryServer(TemplateServer):
-    """Psarc Library server implementation."""
+    """PSARC Library server implementation."""
 
     def __init__(self, config: PsarcLibraryServerConfig | None = None) -> None:
         """Initialize the PsarcLibraryServer.

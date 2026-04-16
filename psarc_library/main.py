@@ -1,4 +1,4 @@
-"""Main entry point for the Psarc library server."""
+"""Main entry point for the PSARC library server."""
 
 from psarc_library.server import PsarcLibraryServer
 
