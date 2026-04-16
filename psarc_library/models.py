@@ -2,13 +2,10 @@
 
 from __future__ import annotations
 
-import logging
 from enum import StrEnum
 
 from pydantic import BaseModel, Field, ValidationError
 from python_template_server.models import TemplateServerConfig
-
-logger = logging.getLogger(__name__)
 
 
 # PSARC Library Configuration Models
