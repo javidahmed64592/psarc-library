@@ -66,7 +66,7 @@ class TestTuningType:
     )
     def test_values(self, tuning_type: TuningType, expected_value: str) -> None:
         """Test the values of the TuningType enumeration."""
-        assert tuning_type.value == expected_value
+        assert tuning_type == expected_value
 
 
 class TestTuningDict:
@@ -115,8 +115,8 @@ class TestSongData:
         assert song_data_dict["artist"] == mock_song_data_entry["Attributes"]["ArtistName"]
         assert song_data_dict["album"] == mock_song_data_entry["Attributes"]["AlbumName"]
         assert song_data_dict["year"] == mock_song_data_entry["Attributes"]["SongYear"]
-        assert song_data_dict["tuning"]["root"] == TuningRoots.E.value
-        assert song_data_dict["tuning"]["type"] == TuningType.STANDARD.value
+        assert song_data_dict["tuning"]["root"] == TuningRoots.E
+        assert song_data_dict["tuning"]["type"] == TuningType.STANDARD
         assert song_data_dict["length"] == mock_song_data_entry["Attributes"]["SongLength"]
         assert song_data_dict["tempo"] == mock_song_data_entry["Attributes"]["SongAverageTempo"]
         assert song_data_dict["dlc"] == mock_song_data_entry["Attributes"]["DLC"]
