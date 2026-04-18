@@ -5,6 +5,7 @@ import logging
 import os
 import struct
 import zlib
+from functools import cache
 from io import BufferedReader
 from pathlib import Path
 
@@ -16,12 +17,7 @@ from psarc_library.models import PsarcHeader, PsarcTocEntry
 
 logger = logging.getLogger(__name__)
 
-if not (_psarc_key := os.getenv(PSARC_TOC_DECRYPTION_KEY_ENV_VAR)):
-    error_msg = f"Environment variable not set: {PSARC_TOC_DECRYPTION_KEY_ENV_VAR}"
-    logger.exception(error_msg)
-    raise SystemExit(error_msg)
 
-_PSARC_KEY = bytes.fromhex(_psarc_key)
 _PSARC_HEADER_SIZE = 32
 _PSARC_MAGIC = b"PSAR"
 
@@ -50,9 +46,19 @@ def validate_toc_count(toc_count: int) -> bool:
     return toc_count > 0 and toc_count <= _TOC_MAX_COUNT
 
 
+@cache
+def get_psarc_key() -> bytes:
+    """Get the PSARC TOC decryption key from the environment variable."""
+    if not (_psarc_key := os.getenv(PSARC_TOC_DECRYPTION_KEY_ENV_VAR)):
+        error_msg = f"Environment variable not set: {PSARC_TOC_DECRYPTION_KEY_ENV_VAR}"
+        logger.exception(error_msg)
+        raise SystemExit(error_msg)
+    return bytes.fromhex(_psarc_key)
+
+
 def decrypt_toc(toc_raw: bytes) -> bytes:
     """Decrypt the TOC if it is encrypted."""
-    cipher = AES.new(_PSARC_KEY, AES.MODE_CFB, bytes(16), segment_size=128)
+    cipher = AES.new(get_psarc_key(), AES.MODE_CFB, bytes(16), segment_size=128)
     return cipher.decrypt(toc_raw)
 
 
