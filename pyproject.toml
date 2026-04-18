@@ -168,6 +168,7 @@ pretty = true
 
 [[tool.mypy.overrides]]
 module = [
+    "cachetools.*",
     "psarc_library.*",
     "python_template_server.*",
     "template_python.*",

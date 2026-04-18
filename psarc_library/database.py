@@ -12,7 +12,15 @@ from cachetools import TTLCache
 from sqlmodel import Field, Relationship, Session, SQLModel, create_engine, select
 
 from psarc_library.constants import CACHE_MAXSIZE, CACHE_TTL
-from psarc_library.models import FailedPsarcEntry, PsarcData, PsarcDatabaseConfig, SongData, Tuning
+from psarc_library.models import (
+    FailedPsarcEntry,
+    PsarcData,
+    PsarcDatabaseConfig,
+    SongData,
+    Tuning,
+    TuningRoots,
+    TuningType,
+)
 from psarc_library.psarc import parse_psarc
 
 logger = logging.getLogger(__name__)
@@ -36,7 +44,7 @@ def cache_method[T](func: Callable[..., T]) -> Callable[..., T]:
         # Check if result is in cache
         if cache_key in self._cache:
             logger.debug("Cache hit for %s", cache_key)
-            return self._cache[cache_key]
+            return self._cache[cache_key]  # type: ignore[no-any-return]
 
         # Call function and cache result
         result = func(self, *args, **kwargs)
@@ -67,7 +75,7 @@ class TuningDB(SQLModel, table=True):
 
     def to_tuning(self) -> Tuning:
         """Convert TuningDB to Tuning model."""
-        return Tuning(root=self.root, type=self.type)
+        return Tuning(root=TuningRoots[self.root], type=TuningType[self.type])
 
 
 class SongDataDB(SQLModel, table=True):
@@ -384,11 +392,11 @@ class DatabaseManager:
         with Session(self.engine) as session:
             statement = select(SongDataDB)
             if title:
-                statement = statement.where(SongDataDB.title.contains(title))
+                statement = statement.where(SongDataDB.title.contains(title))  # type: ignore[attr-defined]
             if artist:
-                statement = statement.where(SongDataDB.artist.contains(artist))
+                statement = statement.where(SongDataDB.artist.contains(artist))  # type: ignore[attr-defined]
             if album:
-                statement = statement.where(SongDataDB.album.contains(album))
+                statement = statement.where(SongDataDB.album.contains(album))  # type: ignore[attr-defined]
             if year:
                 statement = statement.where(SongDataDB.year == year)
             statement = statement.offset(skip).limit(limit)
