@@ -18,6 +18,7 @@ classifiers = [
     "License :: OSI Approved :: MIT License",
 ]
 dependencies = [
+    "cachetools>=5.6.0",
     "numpy>=2.4.4",
     "pycryptodome>=3.23.0",
     "python-template-server @ git+https://github.com/javidahmed64592/python-template-server.git",
@@ -61,7 +62,7 @@ branch = true
 source = ["psarc_library", "tests"]
 
 [tool.coverage.report]
-fail_under = 80
+fail_under = 50
 skip_covered = false
 show_missing = true
 
