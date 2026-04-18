@@ -1,4 +1,4 @@
-"""Unit tests for the python_template_server.template_server module."""
+"""Unit tests for the psarc_library.server module."""
 
 from __future__ import annotations
 
@@ -44,6 +44,7 @@ def mock_server(
 
     with (
         patch("psarc_library.server.PsarcLibraryServerConfig.save_to_file"),
+        patch("psarc_library.server.DatabaseManager", return_value=MagicMock()),
         patch.object(PsarcLibraryServer, "_verify_api_key", new=fake_verify_api_key),
     ):
         server = PsarcLibraryServer(config=mock_psarc_library_server_config)
