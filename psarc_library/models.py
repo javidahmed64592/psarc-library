@@ -5,7 +5,7 @@ from __future__ import annotations
 from enum import StrEnum
 
 from pydantic import BaseModel, Field, ValidationError
-from python_template_server.models import TemplateServerConfig
+from python_template_server.models import BaseResponse, TemplateServerConfig
 
 
 # PSARC Library Configuration Models
@@ -208,4 +208,74 @@ class PsarcTocEntry(BaseModel):
     offset: int = Field(..., description="The offset of the file data from the start of the data blocks in bytes.")
 
 
+# Failed PSARC Models
+class FailedPsarcEntry(BaseModel):
+    """Model representing a failed PSARC file parsing attempt."""
+
+    filename: str = Field(..., description="The filename of the failed PSARC file.")
+    filepath: str = Field(..., description="The full path to the failed PSARC file.")
+    error_type: str = Field(..., description="The type of error that occurred.")
+    error_message: str = Field(..., description="Detailed error message.")
+    timestamp: str = Field(..., description="When the failure occurred.")
+    file_size: int | None = Field(None, description="Size of the PSARC file in bytes.")
+    raw_data: str | None = Field(None, description="Any raw data that could be extracted before failure.")
+
+
 # API Response Models
+class GetPsarcDataResponse(BaseResponse):
+    """Response model for getting a single PSARC data entry."""
+
+    data: PsarcData = Field(..., description="The PSARC data")
+    psarc_id: int = Field(..., description="The ID of the PSARC data entry")
+
+
+class ListPsarcDataResponse(BaseResponse):
+    """Response model for listing PSARC data entries."""
+
+    data: list[PsarcData] = Field(..., description="List of PSARC data entries")
+    total: int = Field(..., description="Total number of PSARC data entries")
+    skip: int = Field(..., description="Number of entries skipped")
+    limit: int = Field(..., description="Maximum number of entries returned")
+
+
+class SearchSongsResponse(BaseResponse):
+    """Response model for searching songs."""
+
+    data: list[SongData] = Field(..., description="List of songs matching the search criteria")
+    total: int = Field(..., description="Total number of songs found")
+
+
+class StatsResponse(BaseResponse):
+    """Response model for database statistics."""
+
+    total_psarc_files: int = Field(..., description="Total number of PSARC files in the database")
+    total_songs: int = Field(..., description="Total number of songs in the database")
+    total_failed_files: int = Field(default=0, description="Total number of failed PSARC files in the database")
+
+
+class SyncResponse(BaseResponse):
+    """Response model for sync operation."""
+
+    files_processed: int = Field(..., description="Number of files processed")
+    files_added: int = Field(..., description="Number of new files added")
+    files_failed: int = Field(..., description="Number of files that failed to parse")
+    files_skipped: int = Field(..., description="Number of files skipped (already in database)")
+    files_cleaned: int = Field(..., description="Number of failed entries cleaned up for missing files")
+
+
+class ValidatePsarcResponse(BaseResponse):
+    """Response model for PSARC file validation."""
+
+    filename: str = Field(..., description="The filename that was validated")
+    is_valid: bool = Field(..., description="Whether the file is valid")
+    data: PsarcData | None = Field(None, description="Parsed PSARC data if valid")
+    error: FailedPsarcEntry | None = Field(None, description="Error details if invalid")
+
+
+class ListFailedPsarcResponse(BaseResponse):
+    """Response model for listing failed PSARC entries."""
+
+    data: list[FailedPsarcEntry] = Field(..., description="List of failed PSARC entries")
+    total: int = Field(..., description="Total number of failed entries")
+    skip: int = Field(..., description="Number of entries skipped")
+    limit: int = Field(..., description="Maximum number of entries returned")
