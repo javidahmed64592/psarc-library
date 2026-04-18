@@ -2,15 +2,49 @@
 
 import logging
 import traceback
+from collections.abc import Callable
 from datetime import UTC, datetime
+from functools import wraps
 from pathlib import Path
+from typing import Any, TypeVar
 
+from cachetools import TTLCache
 from sqlmodel import Field, Relationship, Session, SQLModel, create_engine, select
 
+from psarc_library.constants import CACHE_MAXSIZE, CACHE_TTL
 from psarc_library.models import FailedPsarcEntry, PsarcData, PsarcDatabaseConfig, SongData, Tuning
 from psarc_library.psarc import parse_psarc
 
 logger = logging.getLogger(__name__)
+
+# Type variable for generic function return type
+T = TypeVar("T")
+
+
+def cache_method[T](func: Callable[..., T]) -> Callable[..., T]:
+    """Decorator to cache method results with automatic invalidation.
+
+    Uses a TTL cache with a 5-minute expiration time. Cache is stored on the instance
+    and can be cleared via the instance's _clear_cache method.
+    """
+
+    @wraps(func)
+    def wrapper(self: "DatabaseManager", *args: Any, **kwargs: Any) -> T:  # noqa: ANN401
+        # Generate cache key from function name and arguments
+        cache_key = f"{func.__name__}:{args}:{kwargs}"
+
+        # Check if result is in cache
+        if cache_key in self._cache:
+            logger.debug("Cache hit for %s", cache_key)
+            return self._cache[cache_key]
+
+        # Call function and cache result
+        result = func(self, *args, **kwargs)
+        self._cache[cache_key] = result
+        logger.debug("Cache miss for %s - result cached", cache_key)
+        return result
+
+    return wrapper
 
 
 # Database Models
@@ -145,6 +179,7 @@ class DatabaseManager:
         """Initialize the database manager."""
         self.db_config = db_config
         self.psarc_dir = psarc_dir
+        self._cache: TTLCache = TTLCache(maxsize=CACHE_MAXSIZE, ttl=CACHE_TTL)
 
         logger.info("Creating database directory: %s", self.db_config.db_directory)
         Path(self.db_config.db_directory).mkdir(parents=True, exist_ok=True)
@@ -155,6 +190,11 @@ class DatabaseManager:
 
         logger.info("Adding initial entries from PSARC directory: %s", self.psarc_dir)
         self._initialize_database()
+
+    def _clear_cache(self) -> None:
+        """Clear all cached results."""
+        self._cache.clear()
+        logger.debug("Cache cleared")
 
     def _initialize_database(self) -> None:
         """Scan the PSARC directory and add entries to the database."""
@@ -262,6 +302,7 @@ class DatabaseManager:
             session.add(failed_db)
             session.commit()
             session.refresh(failed_db)
+            self._clear_cache()  # Cache invalidation for failed entries
             return failed_db
 
     def _get_or_create_tuning(self, session: Session, tuning: Tuning) -> TuningDB:
@@ -308,6 +349,7 @@ class DatabaseManager:
 
             session.commit()
             session.refresh(psarc_data_db)
+            self._clear_cache()  # Cache invalidation for PSARC data and song counts
             return psarc_data_db
 
     def get_psarc_data(self, psarc_id: int) -> PsarcData | None:
@@ -319,6 +361,7 @@ class DatabaseManager:
                 return psarc_data_db.to_psarc_data()
             return None
 
+    @cache_method
     def get_all_psarc_data(self, skip: int = 0, limit: int = 100) -> list[PsarcData]:
         """Get all PsarcData objects with pagination."""
         with Session(self.engine) as session:
@@ -327,6 +370,7 @@ class DatabaseManager:
             logger.info("Retrieved %d PSARC data entries", len(psarc_data_list))
             return [psarc.to_psarc_data() for psarc in psarc_data_list]
 
+    @cache_method
     def search_songs(
         self,
         title: str | None = None,
@@ -362,6 +406,7 @@ class DatabaseManager:
                 return psarc_data_db.to_psarc_data()
             return None
 
+    @cache_method
     def count_psarc_data(self) -> int:
         """Count total number of PSARC data entries."""
         with Session(self.engine) as session:
@@ -370,6 +415,7 @@ class DatabaseManager:
             logger.info("Total PSARC data entries: %d", count)
             return count
 
+    @cache_method
     def count_songs(self) -> int:
         """Count total number of songs."""
         with Session(self.engine) as session:
@@ -421,6 +467,7 @@ class DatabaseManager:
             stats["skipped"],
             stats["cleaned"],
         )
+        self._clear_cache()  # Cache invalidation after sync operation
         return stats
 
     def validate_psarc_file(self, filepath: Path) -> tuple[bool, PsarcData | None, FailedPsarcEntry | None]:
@@ -478,6 +525,7 @@ class DatabaseManager:
             logger.exception("Error validating PSARC file: %s", filepath.name)
             return False, None, error
 
+    @cache_method
     def get_all_failed_psarc(self, skip: int = 0, limit: int = 100) -> list[FailedPsarcEntry]:
         """Get all failed PSARC entries with pagination.
 
@@ -505,8 +553,10 @@ class DatabaseManager:
             logger.info("Deleting failed PSARC entry by filename: %s", filename)
             session.delete(failed_db)
             session.commit()
+            self._clear_cache()  # Cache invalidation for failed entries
             return True
 
+    @cache_method
     def count_failed_psarc(self) -> int:
         """Count total number of failed PSARC entries.
 
