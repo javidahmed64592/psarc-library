@@ -56,6 +56,10 @@ addopts = [
     "--cov-report",
     "term-missing",
 ]
+env = [
+    "PSARC_DIR=/path/to/steamapps/common/Rocksmith2014/dlc/",
+    "PSARC_TOC_DECRYPTION_KEY=decryption_key",
+]
 
 [tool.coverage.run]
 branch = true
