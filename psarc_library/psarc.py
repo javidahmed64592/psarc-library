@@ -16,12 +16,13 @@ from psarc_library.models import PsarcHeader, PsarcTocEntry
 
 logger = logging.getLogger(__name__)
 
-if not (_psarc_key := os.getenv(PSARC_TOC_DECRYPTION_KEY_ENV_VAR)):
+if _psarc_key := os.getenv(PSARC_TOC_DECRYPTION_KEY_ENV_VAR):
+    _PSARC_KEY = bytes.fromhex(_psarc_key)
+else:
     error_msg = f"Environment variable not set: {PSARC_TOC_DECRYPTION_KEY_ENV_VAR}"
-    logger.exception(error_msg)
-    raise SystemExit(error_msg)
+    logger.error(error_msg)
+    _PSARC_KEY = b""
 
-_PSARC_KEY = bytes.fromhex(_psarc_key)
 _PSARC_HEADER_SIZE = 32
 _PSARC_MAGIC = b"PSAR"
 

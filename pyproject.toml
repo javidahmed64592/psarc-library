@@ -56,9 +56,6 @@ addopts = [
     "--cov-report",
     "term-missing",
 ]
-env = [
-    "PSARC_TOC_DECRYPTION_KEY=decryption_key",
-]
 
 [tool.coverage.run]
 branch = true
