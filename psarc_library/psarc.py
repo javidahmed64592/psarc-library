@@ -20,7 +20,7 @@ if _psarc_key := os.getenv(PSARC_TOC_DECRYPTION_KEY_ENV_VAR):
     _PSARC_KEY = bytes.fromhex(_psarc_key)
 else:
     error_msg = f"Environment variable not set: {PSARC_TOC_DECRYPTION_KEY_ENV_VAR}"
-    logger.error(error_msg)
+    logger.warning(error_msg)
     _PSARC_KEY = b""
 
 _PSARC_HEADER_SIZE = 32
