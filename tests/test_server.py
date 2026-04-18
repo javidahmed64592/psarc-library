@@ -44,6 +44,7 @@ def mock_server(
 
     with (
         patch("psarc_library.server.PsarcLibraryServerConfig.save_to_file"),
+        patch("psarc_library.server.DatabaseManager", return_value=MagicMock()),
         patch.object(PsarcLibraryServer, "_verify_api_key", new=fake_verify_api_key),
     ):
         server = PsarcLibraryServer(config=mock_psarc_library_server_config)
