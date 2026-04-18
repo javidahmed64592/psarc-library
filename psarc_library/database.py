@@ -1,11 +1,13 @@
 """SQLModel database module."""
 
 import logging
+import traceback
+from datetime import UTC, datetime
 from pathlib import Path
 
 from sqlmodel import Field, Relationship, Session, SQLModel, create_engine, select
 
-from psarc_library.models import PsarcData, PsarcDatabaseConfig, SongData, Tuning
+from psarc_library.models import FailedPsarcEntry, PsarcData, PsarcDatabaseConfig, SongData, Tuning
 from psarc_library.psarc import parse_psarc
 
 logger = logging.getLogger(__name__)
@@ -95,6 +97,46 @@ class PsarcDataDB(SQLModel, table=True):
         )
 
 
+class FailedPsarcDB(SQLModel, table=True):
+    """Model representing a failed PSARC file parsing attempt in the database."""
+
+    __tablename__ = "failed_psarc"
+
+    id: int | None = Field(default=None, primary_key=True, description="Unique identifier for the failed entry")
+    filename: str = Field(..., description="The filename of the failed PSARC file", index=True)
+    filepath: str = Field(..., description="The full path to the failed PSARC file")
+    error_type: str = Field(..., description="The type of error that occurred")
+    error_message: str = Field(..., description="Detailed error message")
+    timestamp: str = Field(..., description="When the failure occurred")
+    file_size: int | None = Field(None, description="Size of the PSARC file in bytes")
+    raw_data: str | None = Field(None, description="Any raw data that could be extracted before failure")
+
+    @classmethod
+    def from_failed_entry(cls, entry: FailedPsarcEntry) -> "FailedPsarcDB":
+        """Create a FailedPsarcDB instance from a FailedPsarcEntry model."""
+        return cls(
+            filename=entry.filename,
+            filepath=entry.filepath,
+            error_type=entry.error_type,
+            error_message=entry.error_message,
+            timestamp=entry.timestamp,
+            file_size=entry.file_size,
+            raw_data=entry.raw_data,
+        )
+
+    def to_failed_entry(self) -> FailedPsarcEntry:
+        """Convert FailedPsarcDB to FailedPsarcEntry model."""
+        return FailedPsarcEntry(
+            filename=self.filename,
+            filepath=self.filepath,
+            error_type=self.error_type,
+            error_message=self.error_message,
+            timestamp=self.timestamp,
+            file_size=self.file_size,
+            raw_data=self.raw_data,
+        )
+
+
 # Database Manager
 class DatabaseManager:
     """Manager class for database operations."""
@@ -123,17 +165,104 @@ class DatabaseManager:
             if self.get_psarc_data_by_filename(filename=psarc_file.name):
                 continue
 
-            logger.info("Processing PSARC file: %s", psarc_file.name)
-            if not (manifests := parse_psarc(filepath=psarc_file)):
-                logger.warning("No valid manifests found in PSARC file: %s", psarc_file.name)
-                continue
+            self._process_psarc_file(psarc_file=psarc_file)
 
-            if not (psarc_data_list := PsarcData.from_manifests(filename=psarc_file.name, manifests=manifests)):
-                logger.warning("Failed to create PSARC data from manifests for file: %s", psarc_file.name)
-                continue
+    def _process_psarc_file(self, psarc_file: Path) -> bool:
+        """Process a single PSARC file and add it to the database or record failure.
 
+        :param Path psarc_file: Path to the PSARC file
+        :return bool: True if successfully processed, False otherwise
+        """
+        logger.info("Processing PSARC file: %s", psarc_file.name)
+
+        try:
+            # Try to parse the PSARC file
+            manifests = parse_psarc(filepath=psarc_file)
+            if not manifests:
+                self._record_failure(
+                    filepath=psarc_file,
+                    error_type="ParseError",
+                    error_message="No valid manifests found in PSARC file",
+                    raw_data=None,
+                )
+                return False
+
+            # Try to create PsarcData from manifests
+            psarc_data_list = PsarcData.from_manifests(filename=psarc_file.name, manifests=manifests)
+            if not psarc_data_list:
+                self._record_failure(
+                    filepath=psarc_file,
+                    error_type="ValidationError",
+                    error_message="Failed to create PSARC data from manifests - no valid entries found",
+                    raw_data=str(manifests),
+                )
+                return False
+
+        except Exception as e:
+            # Catch any unexpected errors and record them
+            error_trace = traceback.format_exc()
+            self._record_failure(
+                filepath=psarc_file,
+                error_type=type(e).__name__,
+                error_message=f"{e!s}\n\nTraceback:\n{error_trace}",
+                raw_data=None,
+            )
+            logger.exception("Unexpected error processing PSARC file: %s", psarc_file.name)
+            return False
+        else:
+            # Add all valid PSARC data to database
             for psarc_data in psarc_data_list:
                 self.add_psarc_data(psarc_data=psarc_data)
+
+            logger.info("Successfully processed PSARC file: %s", psarc_file.name)
+            return True
+
+    def _record_failure(
+        self, filepath: Path, error_type: str, error_message: str, raw_data: str | None
+    ) -> FailedPsarcDB:
+        """Record a failed PSARC file parsing attempt.
+
+        :param Path filepath: Path to the failed PSARC file
+        :param str error_type: Type of error
+        :param str error_message: Detailed error message
+        :param str | None raw_data: Any raw data extracted before failure
+        :return FailedPsarcDB: The recorded failure entry
+        """
+        file_size = filepath.stat().st_size if filepath.exists() else None
+        timestamp = datetime.now(UTC).isoformat()
+
+        failed_entry = FailedPsarcEntry(
+            filename=filepath.name,
+            filepath=str(filepath),
+            error_type=error_type,
+            error_message=error_message,
+            timestamp=timestamp,
+            file_size=file_size,
+            raw_data=raw_data,
+        )
+
+        with Session(self.engine) as session:
+            # Check if failure already exists for this file
+            statement = select(FailedPsarcDB).where(FailedPsarcDB.filename == failed_entry.filename)
+            if existing := session.exec(statement).first():
+                # Update existing failure record
+                logger.info("Updating existing failure record for: %s", filepath.name)
+                existing.error_type = failed_entry.error_type
+                existing.error_message = failed_entry.error_message
+                existing.timestamp = timestamp
+                existing.file_size = file_size
+                existing.raw_data = raw_data
+                session.commit()
+                session.refresh(existing)
+                return existing
+
+            # Create new failure record
+            logger.warning("Recording failure for PSARC file: %s - %s", filepath.name, error_type)
+            failed_db = FailedPsarcDB.from_failed_entry(failed_entry)
+            session.add(failed_db)
+            session.commit()
+            session.refresh(failed_db)
+            return failed_db
 
     def _get_or_create_tuning(self, session: Session, tuning: Tuning) -> TuningDB:
         """Get existing tuning or create a new one."""
@@ -198,56 +327,6 @@ class DatabaseManager:
             logger.info("Retrieved %d PSARC data entries", len(psarc_data_list))
             return [psarc.to_psarc_data() for psarc in psarc_data_list]
 
-    def update_psarc_data(self, psarc_id: int, psarc_data: PsarcData) -> PsarcData | None:
-        """Update a PsarcData object."""
-        with Session(self.engine) as session:
-            statement = select(PsarcDataDB).where(PsarcDataDB.id == psarc_id)
-            if not (psarc_data_db := session.exec(statement).first()):
-                return None
-
-            logger.info("Updating PSARC data: %s", psarc_data_db.filename)
-            psarc_data_db.filename = psarc_data.filename
-            psarc_data_db.iteration_version = psarc_data.iteration_version
-            psarc_data_db.model_name = psarc_data.model_name
-            psarc_data_db.is_in_game = psarc_data.is_in_game
-
-            for song in psarc_data_db.songs:
-                logger.info("Deleting song: %s by %s", song.title, song.artist)
-                session.delete(song)
-
-            for song in psarc_data.entries:
-                tuning_db = self._get_or_create_tuning(session=session, tuning=song.tuning)
-                song_db = SongDataDB(
-                    psarc_data_id=psarc_data_db.id,
-                    tuning_id=tuning_db.id,
-                    title=song.title,
-                    artist=song.artist,
-                    album=song.album,
-                    year=song.year,
-                    length=song.length,
-                    tempo=song.tempo,
-                    dlc=song.dlc,
-                    dlc_key=song.dlc_key,
-                )
-                logger.info("Adding song: %s by %s", song_db.title, song_db.artist)
-                session.add(song_db)
-
-            session.commit()
-            session.refresh(psarc_data_db)
-            return psarc_data_db.to_psarc_data()
-
-    def delete_psarc_data(self, psarc_id: int) -> bool:
-        """Delete a PsarcData object by ID."""
-        with Session(self.engine) as session:
-            statement = select(PsarcDataDB).where(PsarcDataDB.id == psarc_id)
-            if not (psarc_data_db := session.exec(statement).first()):
-                return False
-
-            logger.info("Deleting PSARC data: %s", psarc_data_db.filename)
-            session.delete(psarc_data_db)
-            session.commit()
-            return True
-
     def search_songs(
         self,
         title: str | None = None,
@@ -297,4 +376,144 @@ class DatabaseManager:
             statement = select(SongDataDB)
             count = len(session.exec(statement).all())
             logger.info("Total songs: %d", count)
+            return count
+
+    def sync_psarc_directory(self) -> dict[str, int]:
+        """Rescan the PSARC directory and add any new files.
+
+        Also cleans up failed entries for files that no longer exist.
+
+        :return dict: Statistics about the sync operation
+        """
+        logger.info("Starting sync of PSARC directory: %s", self.psarc_dir)
+        psarc_files = list(self.psarc_dir.glob("*.psarc"))
+        existing_filenames = {f.name for f in psarc_files}
+        stats = {"processed": 0, "added": 0, "failed": 0, "skipped": 0, "cleaned": 0}
+
+        # Process existing files
+        for psarc_file in psarc_files:
+            stats["processed"] += 1
+
+            # Skip if already in database
+            if self.get_psarc_data_by_filename(filename=psarc_file.name):
+                stats["skipped"] += 1
+                continue
+
+            # Process the file
+            if self._process_psarc_file(psarc_file=psarc_file):
+                stats["added"] += 1
+            else:
+                stats["failed"] += 1
+
+        # Clean up failed entries for files that no longer exist
+        all_failed = self.get_all_failed_psarc(skip=0, limit=10000)  # Get all failed entries
+        for failed_entry in all_failed:
+            if failed_entry.filename not in existing_filenames:
+                logger.info("Cleaning up failed entry for missing file: %s", failed_entry.filename)
+                if self.delete_failed_psarc_by_filename(filename=failed_entry.filename):
+                    stats["cleaned"] += 1
+
+        logger.info(
+            "Sync completed: %d processed, %d added, %d failed, %d skipped, %d cleaned",
+            stats["processed"],
+            stats["added"],
+            stats["failed"],
+            stats["skipped"],
+            stats["cleaned"],
+        )
+        return stats
+
+    def validate_psarc_file(self, filepath: Path) -> tuple[bool, PsarcData | None, FailedPsarcEntry | None]:
+        """Validate a PSARC file without adding it to the database.
+
+        :param Path filepath: Path to the PSARC file
+        :return tuple: (is_valid, psarc_data or None, error or None)
+        """
+        logger.info("Validating PSARC file: %s", filepath.name)
+
+        try:
+            # Try to parse the PSARC file
+            manifests = parse_psarc(filepath=filepath)
+            if not manifests:
+                error = FailedPsarcEntry(
+                    filename=filepath.name,
+                    filepath=str(filepath),
+                    error_type="ParseError",
+                    error_message="No valid manifests found in PSARC file",
+                    timestamp=datetime.now(UTC).isoformat(),
+                    file_size=filepath.stat().st_size if filepath.exists() else None,
+                    raw_data=None,
+                )
+                return False, None, error
+
+            # Try to create PsarcData from manifests
+            psarc_data_list = PsarcData.from_manifests(filename=filepath.name, manifests=manifests)
+            if not psarc_data_list:
+                error = FailedPsarcEntry(
+                    filename=filepath.name,
+                    filepath=str(filepath),
+                    error_type="ValidationError",
+                    error_message="Failed to create PSARC data from manifests - no valid entries found",
+                    timestamp=datetime.now(UTC).isoformat(),
+                    file_size=filepath.stat().st_size if filepath.exists() else None,
+                    raw_data=str(manifests),
+                )
+                return False, None, error
+
+            # Return first valid PsarcData (typically there's only one per file)
+            logger.info("PSARC file is valid: %s", filepath.name)
+            return True, psarc_data_list[0], None
+
+        except Exception as e:
+            error_trace = traceback.format_exc()
+            error = FailedPsarcEntry(
+                filename=filepath.name,
+                filepath=str(filepath),
+                error_type=type(e).__name__,
+                error_message=f"{e!s}\n\nTraceback:\n{error_trace}",
+                timestamp=datetime.now(UTC).isoformat(),
+                file_size=filepath.stat().st_size if filepath.exists() else None,
+                raw_data=None,
+            )
+            logger.exception("Error validating PSARC file: %s", filepath.name)
+            return False, None, error
+
+    def get_all_failed_psarc(self, skip: int = 0, limit: int = 100) -> list[FailedPsarcEntry]:
+        """Get all failed PSARC entries with pagination.
+
+        :param int skip: Number of entries to skip
+        :param int limit: Maximum number of entries to return
+        :return list: List of FailedPsarcEntry objects
+        """
+        with Session(self.engine) as session:
+            statement = select(FailedPsarcDB).offset(skip).limit(limit)
+            failed_list = session.exec(statement).all()
+            logger.info("Retrieved %d failed PSARC entries", len(failed_list))
+            return [failed.to_failed_entry() for failed in failed_list]
+
+    def delete_failed_psarc_by_filename(self, filename: str) -> bool:
+        """Delete a failed PSARC entry by filename.
+
+        :param str filename: The filename of the failed entry to delete
+        :return bool: True if deleted, False if not found
+        """
+        with Session(self.engine) as session:
+            statement = select(FailedPsarcDB).where(FailedPsarcDB.filename == filename)
+            if not (failed_db := session.exec(statement).first()):
+                return False
+
+            logger.info("Deleting failed PSARC entry by filename: %s", filename)
+            session.delete(failed_db)
+            session.commit()
+            return True
+
+    def count_failed_psarc(self) -> int:
+        """Count total number of failed PSARC entries.
+
+        :return int: Count of failed entries
+        """
+        with Session(self.engine) as session:
+            statement = select(FailedPsarcDB)
+            count = len(session.exec(statement).all())
+            logger.info("Total failed PSARC entries: %d", count)
             return count
