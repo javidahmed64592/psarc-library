@@ -75,7 +75,7 @@ class TuningDB(SQLModel, table=True):
 
     def to_tuning(self) -> Tuning:
         """Convert TuningDB to Tuning model."""
-        return Tuning(root=TuningRoots[self.root], type=TuningType[self.type])
+        return Tuning(root=TuningRoots(self.root), type=TuningType(self.type))
 
 
 class SongDataDB(SQLModel, table=True):
