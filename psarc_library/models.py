@@ -9,8 +9,26 @@ from python_template_server.models import TemplateServerConfig
 
 
 # PSARC Library Configuration Models
+class PsarcDatabaseConfig(BaseModel):
+    """Configuration for the PSARC Library database."""
+
+    db_directory: str = Field(
+        default="data", description="The directory where the SQLite database file will be stored."
+    )
+    db_filename: str = Field(default="psarc_library.db", description="The filename for the SQLite database.")
+
+    @property
+    def db_url(self) -> str:
+        """Construct the database URL for SQLAlchemy."""
+        return f"sqlite:///{self.db_directory}/{self.db_filename}"
+
+
 class PsarcLibraryServerConfig(TemplateServerConfig):
     """PSARC Library server configuration."""
+
+    db: PsarcDatabaseConfig = Field(
+        default_factory=PsarcDatabaseConfig, description="Configuration for the PSARC Library database."
+    )
 
 
 # PSARC Models
