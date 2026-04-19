@@ -5,7 +5,7 @@ import os
 from pathlib import Path
 from typing import Any
 
-from fastapi import HTTPException, Query, Request, UploadFile
+from fastapi import HTTPException, Query, Request
 from python_template_server.models import ResponseCode
 from python_template_server.template_server import TemplateServer
 
@@ -16,11 +16,9 @@ from psarc_library.models import (
     ListFailedPsarcResponse,
     ListPsarcDataResponse,
     PsarcLibraryServerConfig,
-    SearchSongsResponse,
     StatsResponse,
     SyncResponse,
     ToggleInGameResponse,
-    ValidatePsarcResponse,
 )
 
 logger = logging.getLogger(__name__)
@@ -74,6 +72,13 @@ class PsarcLibraryServer(TemplateServer):
             methods=["GET"],
             limited=True,
         )
+        self.add_authenticated_route(
+            endpoint="/psarc/toggle-in-game",
+            handler_function=self.toggle_in_game,
+            response_model=ToggleInGameResponse,
+            methods=["PATCH"],
+            limited=True,
+        )
 
         # Sync and validation endpoints
         self.add_authenticated_route(
@@ -81,20 +86,6 @@ class PsarcLibraryServer(TemplateServer):
             handler_function=self.sync_psarc_directory,
             response_model=SyncResponse,
             methods=["POST"],
-            limited=True,
-        )
-        self.add_authenticated_route(
-            endpoint="/validate",
-            handler_function=self.validate_psarc_file,
-            response_model=ValidatePsarcResponse,
-            methods=["POST"],
-            limited=True,
-        )
-        self.add_authenticated_route(
-            endpoint="/psarc/toggle-in-game",
-            handler_function=self.toggle_in_game,
-            response_model=ToggleInGameResponse,
-            methods=["PATCH"],
             limited=True,
         )
 
@@ -107,14 +98,7 @@ class PsarcLibraryServer(TemplateServer):
             limited=True,
         )
 
-        # Song search and stats
-        self.add_authenticated_route(
-            endpoint="/songs/search",
-            handler_function=self.search_songs,
-            response_model=SearchSongsResponse,
-            methods=["GET"],
-            limited=True,
-        )
+        # Stats endpoint
         self.add_authenticated_route(
             endpoint="/stats",
             handler_function=self.get_stats,
@@ -185,50 +169,6 @@ class PsarcLibraryServer(TemplateServer):
             files_cleaned=stats["cleaned"],
         )
 
-    async def validate_psarc_file(self, request: Request, file: UploadFile) -> ValidatePsarcResponse:
-        """Validate an uploaded PSARC file without adding it to the database.
-
-        :param Request request: The incoming HTTP request
-        :param UploadFile file: The uploaded PSARC file
-        :return ValidatePsarcResponse: Response containing validation results
-        :raise HTTPException: If file upload fails
-        """
-        if not file.filename or not file.filename.endswith(".psarc"):
-            raise HTTPException(status_code=ResponseCode.BAD_REQUEST, detail="File must be a .psarc file")
-
-        # Save uploaded file temporarily
-        temp_path = Path(self.psarc_dir) / f"_temp_{file.filename}"
-        try:
-            content = await file.read()
-            temp_path.write_bytes(content)
-
-            # Validate the file
-            is_valid, psarc_data, error = self.db_manager.validate_psarc_file(filepath=temp_path)
-
-            if is_valid and psarc_data:
-                return ValidatePsarcResponse(
-                    message=f"PSARC file '{file.filename}' is valid",
-                    timestamp=ValidatePsarcResponse.current_timestamp(),
-                    filename=file.filename,
-                    is_valid=True,
-                    data=psarc_data,
-                    error=None,
-                )
-
-            return ValidatePsarcResponse(
-                message=f"PSARC file '{file.filename}' is invalid",
-                timestamp=ValidatePsarcResponse.current_timestamp(),
-                filename=file.filename,
-                is_valid=False,
-                data=None,
-                error=error,
-            )
-
-        finally:
-            # Clean up temporary file
-            if temp_path.exists():
-                temp_path.unlink()
-
     async def toggle_in_game(self, request: Request, filename: str = Query(...)) -> ToggleInGameResponse:
         """Toggle the is_in_game flag for a PSARC file by filename.
 
@@ -266,42 +206,6 @@ class PsarcLibraryServer(TemplateServer):
             total=total,
             skip=skip,
             limit=limit,
-        )
-
-    async def search_songs(
-        self,
-        request: Request,
-        title: str | None = Query(None),
-        artist: str | None = Query(None),
-        album: str | None = Query(None),
-        year: int | None = Query(None),
-        skip: int = Query(0, ge=0),
-        limit: int = Query(100, ge=1, le=1000),
-    ) -> SearchSongsResponse:
-        """Search for songs by title, artist, album, or year.
-
-        :param Request request: The incoming HTTP request
-        :param str | None title: Song title to search for (partial match)
-        :param str | None artist: Artist name to search for (partial match)
-        :param str | None album: Album name to search for (partial match)
-        :param int | None year: Release year to filter by (exact match)
-        :param int skip: Number of entries to skip
-        :param int limit: Maximum number of entries to return
-        :return SearchSongsResponse: Response containing list of matching songs
-        """
-        songs = self.db_manager.search_songs(
-            title=title,
-            artist=artist,
-            album=album,
-            year=year,
-            skip=skip,
-            limit=limit,
-        )
-        return SearchSongsResponse(
-            message=f"Found {len(songs)} songs",
-            timestamp=SearchSongsResponse.current_timestamp(),
-            data=songs,
-            total=len(songs),
         )
 
     async def get_stats(self, request: Request) -> StatsResponse:

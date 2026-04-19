@@ -478,61 +478,6 @@ class DatabaseManager:
         self._clear_cache()  # Cache invalidation after sync operation
         return stats
 
-    def validate_psarc_file(self, filepath: Path) -> tuple[bool, PsarcData | None, FailedPsarcEntry | None]:
-        """Validate a PSARC file without adding it to the database.
-
-        :param Path filepath: Path to the PSARC file
-        :return tuple: (is_valid, psarc_data or None, error or None)
-        """
-        logger.info("Validating PSARC file: %s", filepath.name)
-
-        try:
-            # Try to parse the PSARC file
-            manifests = parse_psarc(filepath=filepath)
-            if not manifests:
-                error = FailedPsarcEntry(
-                    filename=filepath.name,
-                    filepath=str(filepath),
-                    error_type="ParseError",
-                    error_message="No valid manifests found in PSARC file",
-                    timestamp=datetime.now(UTC).isoformat(),
-                    file_size=filepath.stat().st_size if filepath.exists() else None,
-                    raw_data=None,
-                )
-                return False, None, error
-
-            # Try to create PsarcData from manifests
-            psarc_data_list = PsarcData.from_manifests(filename=filepath.name, manifests=manifests)
-            if not psarc_data_list:
-                error = FailedPsarcEntry(
-                    filename=filepath.name,
-                    filepath=str(filepath),
-                    error_type="ValidationError",
-                    error_message="Failed to create PSARC data from manifests - no valid entries found",
-                    timestamp=datetime.now(UTC).isoformat(),
-                    file_size=filepath.stat().st_size if filepath.exists() else None,
-                    raw_data=str(manifests),
-                )
-                return False, None, error
-
-            # Return first valid PsarcData (typically there's only one per file)
-            logger.info("PSARC file is valid: %s", filepath.name)
-            return True, psarc_data_list[0], None
-
-        except Exception as e:
-            error_trace = traceback.format_exc()
-            error = FailedPsarcEntry(
-                filename=filepath.name,
-                filepath=str(filepath),
-                error_type=type(e).__name__,
-                error_message=f"{e!s}\n\nTraceback:\n{error_trace}",
-                timestamp=datetime.now(UTC).isoformat(),
-                file_size=filepath.stat().st_size if filepath.exists() else None,
-                raw_data=None,
-            )
-            logger.exception("Error validating PSARC file: %s", filepath.name)
-            return False, None, error
-
     @cache_method
     def get_all_failed_psarc(self, skip: int = 0, limit: int = 100) -> list[FailedPsarcEntry]:
         """Get all failed PSARC entries with pagination.

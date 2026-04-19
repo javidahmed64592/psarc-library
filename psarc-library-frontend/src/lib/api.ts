@@ -8,11 +8,9 @@ import type {
   ListPsarcDataResponse,
   LoginResponse,
   PsarcData,
-  SearchSongsResponse,
   StatsResponse,
   SyncResponse,
   ToggleInGameResponse,
-  ValidatePsarcResponse,
 } from "@/lib/types";
 
 // Determine the base URL based on environment
@@ -149,24 +147,6 @@ export const fetchAllPsarcData = async (): Promise<PsarcData[]> => {
   return all;
 };
 
-export const searchSongs = async (params: {
-  title?: string;
-  artist?: string;
-  album?: string;
-  year?: number;
-  skip?: number;
-  limit?: number;
-}): Promise<SearchSongsResponse> => {
-  try {
-    const response = await api.get<SearchSongsResponse>("/songs/search", {
-      params,
-    });
-    return response.data;
-  } catch (error) {
-    throw new Error(extractErrorMessage(error));
-  }
-};
-
 export const listFailedPsarc = async (
   skip = 0,
   limit = 100
@@ -175,27 +155,6 @@ export const listFailedPsarc = async (
     const response = await api.get<ListFailedPsarcResponse>("/failures", {
       params: { skip, limit },
     });
-    return response.data;
-  } catch (error) {
-    throw new Error(extractErrorMessage(error));
-  }
-};
-
-export const validatePsarcFile = async (
-  file: File
-): Promise<ValidatePsarcResponse> => {
-  try {
-    const formData = new FormData();
-    formData.append("file", file);
-    const response = await api.post<ValidatePsarcResponse>(
-      "/validate",
-      formData,
-      {
-        headers: {
-          "Content-Type": "multipart/form-data",
-        },
-      }
-    );
     return response.data;
   } catch (error) {
     throw new Error(extractErrorMessage(error));

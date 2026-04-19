@@ -263,15 +263,6 @@ class SyncResponse(BaseResponse):
     files_cleaned: int = Field(..., description="Number of failed entries cleaned up for missing files")
 
 
-class ValidatePsarcResponse(BaseResponse):
-    """Response model for PSARC file validation."""
-
-    filename: str = Field(..., description="The filename that was validated")
-    is_valid: bool = Field(..., description="Whether the file is valid")
-    data: PsarcData | None = Field(None, description="Parsed PSARC data if valid")
-    error: FailedPsarcEntry | None = Field(None, description="Error details if invalid")
-
-
 class ListFailedPsarcResponse(BaseResponse):
     """Response model for listing failed PSARC entries."""
 

@@ -81,21 +81,11 @@ export interface FailedPsarcEntry {
 }
 
 // API Response types
-export interface GetPsarcDataResponse extends BaseResponse {
-  data: PsarcData;
-  psarc_id: number;
-}
-
 export interface ListPsarcDataResponse extends BaseResponse {
   data: PsarcData[];
   total: number;
   skip: number;
   limit: number;
-}
-
-export interface SearchSongsResponse extends BaseResponse {
-  data: SongData[];
-  total: number;
 }
 
 export interface StatsResponse extends BaseResponse {
@@ -110,13 +100,6 @@ export interface SyncResponse extends BaseResponse {
   files_failed: number;
   files_skipped: number;
   files_cleaned: number;
-}
-
-export interface ValidatePsarcResponse extends BaseResponse {
-  filename: string;
-  is_valid: boolean;
-  data: PsarcData | null;
-  error: FailedPsarcEntry | null;
 }
 
 export interface ListFailedPsarcResponse extends BaseResponse {
