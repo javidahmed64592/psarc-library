@@ -2,7 +2,18 @@ import axios from "axios";
 import { useEffect, useState } from "react";
 
 import { getApiKey } from "@/lib/auth";
-import type { HealthResponse, LoginResponse } from "@/lib/types";
+import type {
+  HealthResponse,
+  ListFailedPsarcResponse,
+  ListPsarcDataResponse,
+  LoginResponse,
+  PsarcData,
+  SearchSongsResponse,
+  StatsResponse,
+  SyncResponse,
+  ToggleInGameResponse,
+  ValidatePsarcResponse,
+} from "@/lib/types";
 
 // Determine the base URL based on environment
 const getBaseURL = () => {
@@ -19,8 +30,8 @@ const getBaseURL = () => {
 
 // API client configuration
 const api = axios.create({
-  baseURL: getBaseURL() + "/api", // This will be proxied in dev, direct in production
-  timeout: 60000, // 60 seconds timeout for LLM responses
+  baseURL: getBaseURL() + "/api",
+  timeout: 60000,
   headers: {
     "Content-Type": "application/json",
   },
@@ -48,19 +59,16 @@ const extractErrorMessage = (error: unknown): string => {
     if (error.response) {
       const errorData = error.response.data;
 
-      // Check for BaseResponse format with message field
       if (errorData?.message) {
         return errorData.message;
       }
 
-      // Check for detail field (common in FastAPI errors)
       if (errorData?.detail) {
         return typeof errorData.detail === "string"
           ? errorData.detail
           : JSON.stringify(errorData.detail);
       }
 
-      // Fallback to generic server error
       return `Server error: ${error.response.status} ${error.response.statusText}`;
     } else if (error.request) {
       return "No response from server. Please check if the backend is running.";
@@ -94,6 +102,121 @@ export const login = async (apiKey: string): Promise<LoginResponse> => {
   }
 };
 
+export const getStats = async (): Promise<StatsResponse> => {
+  try {
+    const response = await api.get<StatsResponse>("/stats");
+    return response.data;
+  } catch (error) {
+    throw new Error(extractErrorMessage(error));
+  }
+};
+
+export const syncPsarcDirectory = async (): Promise<SyncResponse> => {
+  try {
+    const response = await api.post<SyncResponse>("/sync");
+    return response.data;
+  } catch (error) {
+    throw new Error(extractErrorMessage(error));
+  }
+};
+
+export const listPsarcData = async (
+  skip = 0,
+  limit = 100
+): Promise<ListPsarcDataResponse> => {
+  try {
+    const response = await api.get<ListPsarcDataResponse>("/psarc", {
+      params: { skip, limit },
+    });
+    return response.data;
+  } catch (error) {
+    throw new Error(extractErrorMessage(error));
+  }
+};
+
+export const fetchAllPsarcData = async (): Promise<PsarcData[]> => {
+  const PAGE_LIMIT = 1000;
+  const all: PsarcData[] = [];
+  let skip = 0;
+
+  while (true) {
+    const response = await listPsarcData(skip, PAGE_LIMIT);
+    all.push(...response.data);
+    if (all.length >= response.total) break;
+    skip += PAGE_LIMIT;
+  }
+
+  return all;
+};
+
+export const searchSongs = async (params: {
+  title?: string;
+  artist?: string;
+  album?: string;
+  year?: number;
+  skip?: number;
+  limit?: number;
+}): Promise<SearchSongsResponse> => {
+  try {
+    const response = await api.get<SearchSongsResponse>("/songs/search", {
+      params,
+    });
+    return response.data;
+  } catch (error) {
+    throw new Error(extractErrorMessage(error));
+  }
+};
+
+export const listFailedPsarc = async (
+  skip = 0,
+  limit = 100
+): Promise<ListFailedPsarcResponse> => {
+  try {
+    const response = await api.get<ListFailedPsarcResponse>("/failures", {
+      params: { skip, limit },
+    });
+    return response.data;
+  } catch (error) {
+    throw new Error(extractErrorMessage(error));
+  }
+};
+
+export const validatePsarcFile = async (
+  file: File
+): Promise<ValidatePsarcResponse> => {
+  try {
+    const formData = new FormData();
+    formData.append("file", file);
+    const response = await api.post<ValidatePsarcResponse>(
+      "/validate",
+      formData,
+      {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      }
+    );
+    return response.data;
+  } catch (error) {
+    throw new Error(extractErrorMessage(error));
+  }
+};
+
+export const toggleInGame = async (
+  filename: string
+): Promise<ToggleInGameResponse> => {
+  try {
+    const response = await api.patch<ToggleInGameResponse>(
+      "/psarc/toggle-in-game",
+      null,
+      { params: { filename } }
+    );
+    return response.data;
+  } catch (error) {
+    throw new Error(extractErrorMessage(error));
+  }
+};
+
 // Health status hook
 export function useHealthStatus(): HealthStatus {
   const [status, setStatus] = useState<HealthStatus>("checking");
@@ -115,7 +238,7 @@ export function useHealthStatus(): HealthStatus {
     };
 
     checkHealth();
-    const interval = setInterval(checkHealth, 30000); // every 30s
+    const interval = setInterval(checkHealth, 30000);
     return () => {
       isMounted = false;
       clearInterval(interval);
