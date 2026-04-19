@@ -18,8 +18,32 @@ const formatTuning = (tuning: Tuning): string => {
     case "Drop":
       return `Drop ${tuning.root}`;
     case "Custom":
-      return "Custom Tuning";
+      return `${tuning.root} Custom`;
   }
+};
+
+const compareTunings = (a: Tuning, b: Tuning): number => {
+  // Root note order: E, Eb, D, Db, C, B, Bb, A, Ab, G, Gb, F
+  const rootOrder = [
+    "E",
+    "Eb",
+    "D",
+    "Db",
+    "C",
+    "B",
+    "Bb",
+    "A",
+    "Ab",
+    "G",
+    "Gb",
+    "F",
+  ];
+  const rootCmp = rootOrder.indexOf(a.root) - rootOrder.indexOf(b.root);
+  if (rootCmp !== 0) return rootCmp;
+
+  // Type order: Drop, Standard, Custom
+  const typeOrder = ["Drop", "Standard", "Custom"];
+  return typeOrder.indexOf(a.type) - typeOrder.indexOf(b.type);
 };
 
 export default function SongsPage() {
@@ -153,7 +177,7 @@ export default function SongsPage() {
           cmp = a.year - b.year;
           break;
         case "tuning":
-          cmp = formatTuning(a.tuning).localeCompare(formatTuning(b.tuning));
+          cmp = compareTunings(a.tuning, b.tuning);
           break;
         case "duration":
           cmp = a.length - b.length;
@@ -437,18 +461,18 @@ export default function SongsPage() {
                   <td className="hidden px-4 py-3 text-text-secondary md:table-cell">
                     {song.album}
                   </td>
-                  <td className="hidden px-4 py-3 text-text-muted sm:table-cell">
+                  <td className="hidden w-16 px-4 py-3 text-text-muted sm:table-cell">
                     {song.year}
                   </td>
-                  <td className="hidden px-4 py-3 lg:table-cell">
-                    <span className="rounded bg-background-tertiary px-2 py-0.5 font-mono text-xs text-neon-purple">
+                  <td className="hidden w-32 px-4 py-3 lg:table-cell">
+                    <span className="whitespace-nowrap rounded bg-background-tertiary px-2 py-0.5 font-mono text-xs text-neon-purple">
                       {formatTuning(song.tuning)}
                     </span>
                   </td>
-                  <td className="hidden px-4 py-3 font-mono text-text-muted sm:table-cell">
+                  <td className="hidden w-20 px-4 py-3 font-mono text-text-muted sm:table-cell">
                     {formatDuration(song.length)}
                   </td>
-                  <td className="hidden px-4 py-3 font-mono text-text-muted lg:table-cell">
+                  <td className="hidden w-16 px-4 py-3 font-mono text-text-muted lg:table-cell">
                     {song.tempo}
                   </td>
                   <td className="hidden px-4 py-3 xl:table-cell">
