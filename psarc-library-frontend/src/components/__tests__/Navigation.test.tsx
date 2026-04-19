@@ -65,28 +65,28 @@ describe("Navigation", () => {
   it("renders all navigation items", () => {
     renderWithAuth(<Navigation />);
     // Check that navigation items exist (they appear in both desktop and mobile)
-    expect(screen.getAllByText("Home")).toHaveLength(2);
+    expect(screen.getAllByText("Songs")).toHaveLength(2);
   });
 
   it("renders navigation links with correct hrefs", () => {
     renderWithAuth(<Navigation />);
     // Get desktop navigation links - use exact match to exclude logo
-    const homeLinks = screen.getAllByRole("link", {
-      name: "Home",
+    const songsLinks = screen.getAllByRole("link", {
+      name: "Songs",
     });
-    expect(homeLinks[0]).toHaveAttribute("href", "/home");
+    expect(songsLinks[0]).toHaveAttribute("href", "/songs");
   });
 
   it("applies active styling to current page", () => {
-    mockUsePathname.mockReturnValue("/home");
+    mockUsePathname.mockReturnValue("/songs");
 
     renderWithAuth(<Navigation />);
-    const homeLinks = screen.getAllByRole("link", {
-      name: "Home",
+    const songsLinks = screen.getAllByRole("link", {
+      name: "Songs",
     });
     // Both desktop and mobile links should have active styling
-    expect(homeLinks[0]).toHaveClass("font-bold", "text-border-accent");
-    expect(homeLinks[1]).toHaveClass("font-bold", "text-border-accent");
+    expect(songsLinks[0]).toHaveClass("font-bold", "text-border-accent");
+    expect(songsLinks[1]).toHaveClass("font-bold", "text-border-accent");
   });
 
   describe("Mobile Navigation", () => {
@@ -165,12 +165,12 @@ describe("Navigation", () => {
       expect(mobileMenu).toHaveClass("block");
 
       // Click a navigation link in mobile menu
-      const homeLinks = screen.getAllByRole("link", {
-        name: "Home",
+      const songsLinks = screen.getAllByRole("link", {
+        name: "Songs",
       });
-      const homeLink = homeLinks[1]; // Second one is in mobile menu
-      if (homeLink) {
-        fireEvent.click(homeLink);
+      const songsLink = songsLinks[1]; // Second one is in mobile menu
+      if (songsLink) {
+        fireEvent.click(songsLink);
       }
 
       // Menu should be closed after clicking
@@ -186,11 +186,11 @@ describe("Navigation", () => {
       fireEvent.click(menuButton);
 
       // All navigation items should appear twice (desktop and mobile)
-      expect(screen.getAllByText("Home")).toHaveLength(2);
+      expect(screen.getAllByText("Songs")).toHaveLength(2);
     });
 
     it("applies active styling to current page in mobile menu", () => {
-      mockUsePathname.mockReturnValue("/home");
+      mockUsePathname.mockReturnValue("/songs");
 
       renderWithAuth(<Navigation />);
       const menuButton = screen.getByRole("button", {
@@ -199,11 +199,11 @@ describe("Navigation", () => {
 
       fireEvent.click(menuButton);
 
-      const homeLinks = screen.getAllByRole("link", {
-        name: "Home",
+      const songsLinks = screen.getAllByRole("link", {
+        name: "Songs",
       });
-      const mobileHomeLink = homeLinks[1]; // Second one is in mobile menu
-      expect(mobileHomeLink).toHaveClass("font-bold", "text-border-accent");
+      const mobileSongsLink = songsLinks[1]; // Second one is in mobile menu
+      expect(mobileSongsLink).toHaveClass("font-bold", "text-border-accent");
     });
   });
 

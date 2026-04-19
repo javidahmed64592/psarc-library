@@ -33,8 +33,24 @@ export default function SongsPage() {
     artist: "",
     album: "",
     year: "",
-    inGameOnly: false,
+    inGameFilter: "all" as "all" | "in-game" | "not-in-game",
   });
+  const [sortColumn, setSortColumn] = useState<string | null>(null);
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
+
+  const handleSort = (column: string) => {
+    if (sortColumn === column) {
+      if (sortDirection === "asc") {
+        setSortDirection("desc");
+      } else {
+        setSortColumn(null);
+        setSortDirection("asc");
+      }
+    } else {
+      setSortColumn(column);
+      setSortDirection("asc");
+    }
+  };
 
   const flattenPsarcData = (
     psarcFiles: Awaited<ReturnType<typeof fetchAllPsarcData>>
@@ -95,7 +111,7 @@ export default function SongsPage() {
   };
 
   const filteredSongs = useMemo(() => {
-    return allSongs.filter(song => {
+    const filtered = allSongs.filter(song => {
       if (
         filters.title &&
         !song.title.toLowerCase().includes(filters.title.toLowerCase())
@@ -113,10 +129,48 @@ export default function SongsPage() {
         return false;
       if (filters.year && song.year !== parseInt(filters.year, 10))
         return false;
-      if (filters.inGameOnly && !song.is_in_game) return false;
+      if (filters.inGameFilter === "in-game" && !song.is_in_game) return false;
+      if (filters.inGameFilter === "not-in-game" && song.is_in_game)
+        return false;
       return true;
     });
-  }, [allSongs, filters]);
+
+    if (!sortColumn) return filtered;
+
+    return [...filtered].sort((a, b) => {
+      let cmp = 0;
+      switch (sortColumn) {
+        case "title":
+          cmp = a.title.localeCompare(b.title);
+          break;
+        case "artist":
+          cmp = a.artist.localeCompare(b.artist);
+          break;
+        case "album":
+          cmp = a.album.localeCompare(b.album);
+          break;
+        case "year":
+          cmp = a.year - b.year;
+          break;
+        case "tuning":
+          cmp = formatTuning(a.tuning).localeCompare(formatTuning(b.tuning));
+          break;
+        case "duration":
+          cmp = a.length - b.length;
+          break;
+        case "bpm":
+          cmp = a.tempo - b.tempo;
+          break;
+        case "psarc":
+          cmp = a.psarc_filename.localeCompare(b.psarc_filename);
+          break;
+        case "inGame":
+          cmp = Number(a.is_in_game) - Number(b.is_in_game);
+          break;
+      }
+      return sortDirection === "desc" ? -cmp : cmp;
+    });
+  }, [allSongs, filters, sortColumn, sortDirection]);
 
   const formatDuration = (seconds: number) => {
     const m = Math.floor(seconds / 60);
@@ -226,28 +280,33 @@ export default function SongsPage() {
           onChange={e => setFilters(f => ({ ...f, year: e.target.value }))}
           className="rounded-md border border-terminal-border bg-background px-3 py-2 text-sm text-text-primary placeholder-text-muted outline-none focus:border-neon-blue"
         />
-        <label className="flex items-center gap-2 rounded-md border border-terminal-border bg-background px-3 py-2 text-sm text-text-secondary">
-          <input
-            type="checkbox"
-            checked={filters.inGameOnly}
-            onChange={e =>
-              setFilters(f => ({ ...f, inGameOnly: e.target.checked }))
-            }
-            className="accent-neon-green"
-          />
-          In Game Only
-        </label>
+        <select
+          value={filters.inGameFilter}
+          onChange={e =>
+            setFilters(f => ({
+              ...f,
+              inGameFilter: e.target.value as "all" | "in-game" | "not-in-game",
+            }))
+          }
+          className="rounded-md border border-terminal-border bg-background px-3 py-2 text-sm text-text-primary outline-none focus:border-neon-blue"
+        >
+          <option value="all">All Songs</option>
+          <option value="in-game">In Game Only</option>
+          <option value="not-in-game">Not In Game</option>
+        </select>
         <button
           type="button"
-          onClick={() =>
+          onClick={() => {
             setFilters({
               title: "",
               artist: "",
               album: "",
               year: "",
-              inGameOnly: false,
-            })
-          }
+              inGameFilter: "all",
+            });
+            setSortColumn(null);
+            setSortDirection("asc");
+          }}
           className="rounded-md border border-terminal-border px-4 py-2 text-sm text-text-secondary transition-colors hover:bg-background-tertiary"
         >
           Clear Filters
@@ -266,33 +325,76 @@ export default function SongsPage() {
         <table className="w-full text-left text-sm">
           <thead className="border-b border-terminal-border bg-background-secondary">
             <tr>
-              <th className="px-4 py-3 font-medium text-text-secondary">
-                Title
-              </th>
-              <th className="px-4 py-3 font-medium text-text-secondary">
-                Artist
-              </th>
-              <th className="hidden px-4 py-3 font-medium text-text-secondary md:table-cell">
-                Album
-              </th>
-              <th className="hidden px-4 py-3 font-medium text-text-secondary sm:table-cell">
-                Year
-              </th>
-              <th className="hidden px-4 py-3 font-medium text-text-secondary lg:table-cell">
-                Tuning
-              </th>
-              <th className="hidden px-4 py-3 font-medium text-text-secondary sm:table-cell">
-                Duration
-              </th>
-              <th className="hidden px-4 py-3 font-medium text-text-secondary lg:table-cell">
-                BPM
-              </th>
-              <th className="hidden px-4 py-3 font-medium text-text-secondary xl:table-cell">
-                PSARC File
-              </th>
-              <th className="px-4 py-3 text-center font-medium text-text-secondary">
-                In Game
-              </th>
+              <SortableHeader
+                label="Title"
+                column="title"
+                sortColumn={sortColumn}
+                sortDirection={sortDirection}
+                onSort={handleSort}
+              />
+              <SortableHeader
+                label="Artist"
+                column="artist"
+                sortColumn={sortColumn}
+                sortDirection={sortDirection}
+                onSort={handleSort}
+              />
+              <SortableHeader
+                label="Album"
+                column="album"
+                sortColumn={sortColumn}
+                sortDirection={sortDirection}
+                onSort={handleSort}
+                className="hidden md:table-cell"
+              />
+              <SortableHeader
+                label="Year"
+                column="year"
+                sortColumn={sortColumn}
+                sortDirection={sortDirection}
+                onSort={handleSort}
+                className="hidden sm:table-cell"
+              />
+              <SortableHeader
+                label="Tuning"
+                column="tuning"
+                sortColumn={sortColumn}
+                sortDirection={sortDirection}
+                onSort={handleSort}
+                className="hidden lg:table-cell"
+              />
+              <SortableHeader
+                label="Duration"
+                column="duration"
+                sortColumn={sortColumn}
+                sortDirection={sortDirection}
+                onSort={handleSort}
+                className="hidden sm:table-cell"
+              />
+              <SortableHeader
+                label="BPM"
+                column="bpm"
+                sortColumn={sortColumn}
+                sortDirection={sortDirection}
+                onSort={handleSort}
+                className="hidden lg:table-cell"
+              />
+              <SortableHeader
+                label="PSARC File"
+                column="psarc"
+                sortColumn={sortColumn}
+                sortDirection={sortDirection}
+                onSort={handleSort}
+                className="hidden xl:table-cell"
+              />
+              <SortableHeader
+                label="In Game"
+                column="inGame"
+                sortColumn={sortColumn}
+                sortDirection={sortDirection}
+                onSort={handleSort}
+                align="center"
+              />
             </tr>
           </thead>
           <tbody>
@@ -455,5 +557,42 @@ function SyncResultCard({ result }: { result: SyncResponse }) {
         ))}
       </div>
     </div>
+  );
+}
+
+function SortableHeader({
+  label,
+  column,
+  sortColumn,
+  sortDirection,
+  onSort,
+  className = "",
+  align = "left",
+}: {
+  label: string;
+  column: string;
+  sortColumn: string | null;
+  sortDirection: "asc" | "desc";
+  onSort: (column: string) => void;
+  className?: string;
+  align?: "left" | "center";
+}) {
+  const isActive = sortColumn === column;
+  return (
+    <th
+      className={`px-4 py-3 font-medium text-text-secondary ${className} ${align === "center" ? "text-center" : ""}`}
+    >
+      <button
+        onClick={() => onSort(column)}
+        className={`inline-flex cursor-pointer items-center gap-1 transition-colors hover:text-text-primary ${
+          isActive ? "text-neon-blue" : ""
+        }`}
+      >
+        {label}
+        <span className="text-xs">
+          {isActive ? (sortDirection === "asc" ? "▲" : "▼") : "⇅"}
+        </span>
+      </button>
+    </th>
   );
 }

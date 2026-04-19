@@ -24,11 +24,6 @@ const Navigation = () => {
       href: "/failures",
       active: pathname === "/failures",
     },
-    {
-      name: "Validate",
-      href: "/validate",
-      active: pathname === "/validate",
-    },
   ];
 
   const toggleMenu = () => {
