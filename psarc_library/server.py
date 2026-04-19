@@ -19,6 +19,7 @@ from psarc_library.models import (
     SearchSongsResponse,
     StatsResponse,
     SyncResponse,
+    ToggleInGameResponse,
     ValidatePsarcResponse,
 )
 
@@ -87,6 +88,13 @@ class PsarcLibraryServer(TemplateServer):
             handler_function=self.validate_psarc_file,
             response_model=ValidatePsarcResponse,
             methods=["POST"],
+            limited=True,
+        )
+        self.add_authenticated_route(
+            endpoint="/psarc/toggle-in-game",
+            handler_function=self.toggle_in_game,
+            response_model=ToggleInGameResponse,
+            methods=["PATCH"],
             limited=True,
         )
 
@@ -220,6 +228,24 @@ class PsarcLibraryServer(TemplateServer):
             # Clean up temporary file
             if temp_path.exists():
                 temp_path.unlink()
+
+    async def toggle_in_game(self, request: Request, filename: str = Query(...)) -> ToggleInGameResponse:
+        """Toggle the is_in_game flag for a PSARC file by filename.
+
+        :param Request request: The incoming HTTP request
+        :param str filename: The filename of the PSARC file to toggle
+        :return ToggleInGameResponse: Response containing the new in-game status
+        :raise HTTPException: If the PSARC file is not found
+        """
+        new_value = self.db_manager.toggle_is_in_game(filename=filename)
+        if new_value is None:
+            raise HTTPException(status_code=ResponseCode.NOT_FOUND, detail=f"PSARC file '{filename}' not found")
+        return ToggleInGameResponse(
+            message=f"Toggled in-game status for '{filename}' to {new_value}",
+            timestamp=ToggleInGameResponse.current_timestamp(),
+            filename=filename,
+            is_in_game=new_value,
+        )
 
     async def list_failed_psarc(
         self, request: Request, skip: int = Query(0, ge=0), limit: int = Query(100, ge=1, le=1000)

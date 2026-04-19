@@ -575,3 +575,24 @@ class DatabaseManager:
             count = len(session.exec(statement).all())
             logger.info("Total failed PSARC entries: %d", count)
             return count
+
+    def toggle_is_in_game(self, filename: str) -> bool | None:
+        """Toggle the is_in_game flag for all PSARC entries with the given filename.
+
+        :param str filename: The filename of the PSARC entries to toggle
+        :return bool | None: The new is_in_game value, or None if no entries found
+        """
+        with Session(self.engine) as session:
+            statement = select(PsarcDataDB).where(PsarcDataDB.filename == filename)
+            entries = session.exec(statement).all()
+            if not entries:
+                return None
+
+            new_value = not entries[0].is_in_game
+            for entry in entries:
+                entry.is_in_game = new_value
+
+            session.commit()
+            self._clear_cache()
+            logger.info("Toggled is_in_game for '%s' to %s", filename, new_value)
+            return new_value

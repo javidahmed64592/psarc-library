@@ -279,3 +279,10 @@ class ListFailedPsarcResponse(BaseResponse):
     total: int = Field(..., description="Total number of failed entries")
     skip: int = Field(..., description="Number of entries skipped")
     limit: int = Field(..., description="Maximum number of entries returned")
+
+
+class ToggleInGameResponse(BaseResponse):
+    """Response model for toggling the in-game status of a PSARC file."""
+
+    filename: str = Field(..., description="The filename that was toggled")
+    is_in_game: bool = Field(..., description="The new in-game status")
