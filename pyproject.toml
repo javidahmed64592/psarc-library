@@ -46,8 +46,12 @@ allow-direct-references = true
 [tool.hatch.build]
 include = [
   "psarc_library/**",
+  "static/**",
   ".here",
 ]
+
+[tool.hatch.build.force-include]
+"static" = "static"
 
 [tool.pytest.ini_options]
 addopts = [
