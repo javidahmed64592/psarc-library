@@ -12,7 +12,6 @@ from python_template_server.template_server import TemplateServer
 from psarc_library.constants import PSARC_DIR_ENV_VAR
 from psarc_library.database import DatabaseManager
 from psarc_library.models import (
-    GetPsarcDataResponse,
     ListFailedPsarcResponse,
     ListPsarcDataResponse,
     PsarcLibraryServerConfig,
@@ -59,13 +58,6 @@ class PsarcLibraryServer(TemplateServer):
         """Add custom API routes."""
         # PSARC data endpoints (read-only)
         self.add_authenticated_route(
-            endpoint="/psarc/{psarc_id}",
-            handler_function=self.get_psarc_data,
-            response_model=GetPsarcDataResponse,
-            methods=["GET"],
-            limited=True,
-        )
-        self.add_authenticated_route(
             endpoint="/psarc",
             handler_function=self.list_psarc_data,
             response_model=ListPsarcDataResponse,
@@ -107,24 +99,6 @@ class PsarcLibraryServer(TemplateServer):
             limited=True,
         )
 
-    async def get_psarc_data(self, request: Request, psarc_id: int) -> GetPsarcDataResponse:
-        """Get a PSARC data entry by ID.
-
-        :param Request request: The incoming HTTP request
-        :param int psarc_id: The ID of the PSARC data entry
-        :return GetPsarcDataResponse: Response containing the PSARC data
-        :raise HTTPException: If the PSARC data is not found
-        """
-        psarc_data = self.db_manager.get_psarc_data(psarc_id)
-        if not psarc_data:
-            raise HTTPException(status_code=ResponseCode.NOT_FOUND, detail=f"PSARC data with ID {psarc_id} not found")
-        return GetPsarcDataResponse(
-            message="PSARC data retrieved successfully",
-            timestamp=GetPsarcDataResponse.current_timestamp(),
-            data=psarc_data,
-            psarc_id=psarc_id,
-        )
-
     async def list_psarc_data(
         self, request: Request, skip: int = Query(0, ge=0), limit: int = Query(100, ge=1, le=1000)
     ) -> ListPsarcDataResponse:
@@ -144,6 +118,24 @@ class PsarcLibraryServer(TemplateServer):
             total=total,
             skip=skip,
             limit=limit,
+        )
+
+    async def toggle_in_game(self, request: Request, filename: str = Query(...)) -> ToggleInGameResponse:
+        """Toggle the is_in_game flag for a PSARC file by filename.
+
+        :param Request request: The incoming HTTP request
+        :param str filename: The filename of the PSARC file to toggle
+        :return ToggleInGameResponse: Response containing the new in-game status
+        :raise HTTPException: If the PSARC file is not found
+        """
+        new_value = self.db_manager.toggle_is_in_game(filename=filename)
+        if new_value is None:
+            raise HTTPException(status_code=ResponseCode.NOT_FOUND, detail=f"PSARC file '{filename}' not found")
+        return ToggleInGameResponse(
+            message=f"Toggled in-game status for '{filename}' to {new_value}",
+            timestamp=ToggleInGameResponse.current_timestamp(),
+            filename=filename,
+            is_in_game=new_value,
         )
 
     async def sync_psarc_directory(self, request: Request) -> SyncResponse:
@@ -167,24 +159,6 @@ class PsarcLibraryServer(TemplateServer):
             files_failed=stats["failed"],
             files_skipped=stats["skipped"],
             files_cleaned=stats["cleaned"],
-        )
-
-    async def toggle_in_game(self, request: Request, filename: str = Query(...)) -> ToggleInGameResponse:
-        """Toggle the is_in_game flag for a PSARC file by filename.
-
-        :param Request request: The incoming HTTP request
-        :param str filename: The filename of the PSARC file to toggle
-        :return ToggleInGameResponse: Response containing the new in-game status
-        :raise HTTPException: If the PSARC file is not found
-        """
-        new_value = self.db_manager.toggle_is_in_game(filename=filename)
-        if new_value is None:
-            raise HTTPException(status_code=ResponseCode.NOT_FOUND, detail=f"PSARC file '{filename}' not found")
-        return ToggleInGameResponse(
-            message=f"Toggled in-game status for '{filename}' to {new_value}",
-            timestamp=ToggleInGameResponse.current_timestamp(),
-            filename=filename,
-            is_in_game=new_value,
         )
 
     async def list_failed_psarc(

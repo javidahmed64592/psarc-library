@@ -100,24 +100,6 @@ export const login = async (apiKey: string): Promise<LoginResponse> => {
   }
 };
 
-export const getStats = async (): Promise<StatsResponse> => {
-  try {
-    const response = await api.get<StatsResponse>("/stats");
-    return response.data;
-  } catch (error) {
-    throw new Error(extractErrorMessage(error));
-  }
-};
-
-export const syncPsarcDirectory = async (): Promise<SyncResponse> => {
-  try {
-    const response = await api.post<SyncResponse>("/sync");
-    return response.data;
-  } catch (error) {
-    throw new Error(extractErrorMessage(error));
-  }
-};
-
 export const listPsarcData = async (
   skip = 0,
   limit = 100
@@ -147,6 +129,30 @@ export const fetchAllPsarcData = async (): Promise<PsarcData[]> => {
   return all;
 };
 
+export const toggleInGame = async (
+  filename: string
+): Promise<ToggleInGameResponse> => {
+  try {
+    const response = await api.patch<ToggleInGameResponse>(
+      "/psarc/toggle-in-game",
+      null,
+      { params: { filename } }
+    );
+    return response.data;
+  } catch (error) {
+    throw new Error(extractErrorMessage(error));
+  }
+};
+
+export const syncPsarcDirectory = async (): Promise<SyncResponse> => {
+  try {
+    const response = await api.post<SyncResponse>("/sync");
+    return response.data;
+  } catch (error) {
+    throw new Error(extractErrorMessage(error));
+  }
+};
+
 export const listFailedPsarc = async (
   skip = 0,
   limit = 100
@@ -161,15 +167,9 @@ export const listFailedPsarc = async (
   }
 };
 
-export const toggleInGame = async (
-  filename: string
-): Promise<ToggleInGameResponse> => {
+export const getStats = async (): Promise<StatsResponse> => {
   try {
-    const response = await api.patch<ToggleInGameResponse>(
-      "/psarc/toggle-in-game",
-      null,
-      { params: { filename } }
-    );
+    const response = await api.get<StatsResponse>("/stats");
     return response.data;
   } catch (error) {
     throw new Error(extractErrorMessage(error));

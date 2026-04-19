@@ -360,15 +360,6 @@ class DatabaseManager:
             self._clear_cache()  # Cache invalidation for PSARC data and song counts
             return psarc_data_db
 
-    def get_psarc_data(self, psarc_id: int) -> PsarcData | None:
-        """Get a PsarcData object by ID."""
-        with Session(self.engine) as session:
-            statement = select(PsarcDataDB).where(PsarcDataDB.id == psarc_id)
-            if psarc_data_db := session.exec(statement).first():
-                logger.info("Retrieved PSARC data: %s", psarc_data_db.filename)
-                return psarc_data_db.to_psarc_data()
-            return None
-
     @cache_method
     def get_all_psarc_data(self, skip: int = 0, limit: int = 100) -> list[PsarcData]:
         """Get all PsarcData objects with pagination."""
@@ -377,32 +368,6 @@ class DatabaseManager:
             psarc_data_list = session.exec(statement).all()
             logger.info("Retrieved %d PSARC data entries", len(psarc_data_list))
             return [psarc.to_psarc_data() for psarc in psarc_data_list]
-
-    @cache_method
-    def search_songs(
-        self,
-        title: str | None = None,
-        artist: str | None = None,
-        album: str | None = None,
-        year: int | None = None,
-        skip: int = 0,
-        limit: int = 100,
-    ) -> list[SongData]:
-        """Search for songs by various criteria."""
-        with Session(self.engine) as session:
-            statement = select(SongDataDB)
-            if title:
-                statement = statement.where(SongDataDB.title.contains(title))  # type: ignore[attr-defined]
-            if artist:
-                statement = statement.where(SongDataDB.artist.contains(artist))  # type: ignore[attr-defined]
-            if album:
-                statement = statement.where(SongDataDB.album.contains(album))  # type: ignore[attr-defined]
-            if year:
-                statement = statement.where(SongDataDB.year == year)
-            statement = statement.offset(skip).limit(limit)
-            songs = session.exec(statement).all()
-            logger.info("Retrieved %d songs", len(songs))
-            return [song.to_song_data() for song in songs]
 
     def get_psarc_data_by_filename(self, filename: str) -> PsarcData | None:
         """Get a PsarcData object by filename."""
@@ -414,23 +379,26 @@ class DatabaseManager:
                 return psarc_data_db.to_psarc_data()
             return None
 
-    @cache_method
-    def count_psarc_data(self) -> int:
-        """Count total number of PSARC data entries."""
-        with Session(self.engine) as session:
-            statement = select(PsarcDataDB)
-            count = len(session.exec(statement).all())
-            logger.info("Total PSARC data entries: %d", count)
-            return count
+    def toggle_is_in_game(self, filename: str) -> bool | None:
+        """Toggle the is_in_game flag for all PSARC entries with the given filename.
 
-    @cache_method
-    def count_songs(self) -> int:
-        """Count total number of songs."""
+        :param str filename: The filename of the PSARC entries to toggle
+        :return bool | None: The new is_in_game value, or None if no entries found
+        """
         with Session(self.engine) as session:
-            statement = select(SongDataDB)
-            count = len(session.exec(statement).all())
-            logger.info("Total songs: %d", count)
-            return count
+            statement = select(PsarcDataDB).where(PsarcDataDB.filename == filename)
+            entries = session.exec(statement).all()
+            if not entries:
+                return None
+
+            new_value = not entries[0].is_in_game
+            for entry in entries:
+                entry.is_in_game = new_value
+
+            session.commit()
+            self._clear_cache()
+            logger.info("Toggled is_in_game for '%s' to %s", filename, new_value)
+            return new_value
 
     def sync_psarc_directory(self) -> dict[str, int]:
         """Rescan the PSARC directory and add any new files.
@@ -521,23 +489,20 @@ class DatabaseManager:
             logger.info("Total failed PSARC entries: %d", count)
             return count
 
-    def toggle_is_in_game(self, filename: str) -> bool | None:
-        """Toggle the is_in_game flag for all PSARC entries with the given filename.
-
-        :param str filename: The filename of the PSARC entries to toggle
-        :return bool | None: The new is_in_game value, or None if no entries found
-        """
+    @cache_method
+    def count_psarc_data(self) -> int:
+        """Count total number of PSARC data entries."""
         with Session(self.engine) as session:
-            statement = select(PsarcDataDB).where(PsarcDataDB.filename == filename)
-            entries = session.exec(statement).all()
-            if not entries:
-                return None
+            statement = select(PsarcDataDB)
+            count = len(session.exec(statement).all())
+            logger.info("Total PSARC data entries: %d", count)
+            return count
 
-            new_value = not entries[0].is_in_game
-            for entry in entries:
-                entry.is_in_game = new_value
-
-            session.commit()
-            self._clear_cache()
-            logger.info("Toggled is_in_game for '%s' to %s", filename, new_value)
-            return new_value
+    @cache_method
+    def count_songs(self) -> int:
+        """Count total number of songs."""
+        with Session(self.engine) as session:
+            statement = select(SongDataDB)
+            count = len(session.exec(statement).all())
+            logger.info("Total songs: %d", count)
+            return count

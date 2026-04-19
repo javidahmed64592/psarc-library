@@ -222,13 +222,6 @@ class FailedPsarcEntry(BaseModel):
 
 
 # API Response Models
-class GetPsarcDataResponse(BaseResponse):
-    """Response model for getting a single PSARC data entry."""
-
-    data: PsarcData = Field(..., description="The PSARC data")
-    psarc_id: int = Field(..., description="The ID of the PSARC data entry")
-
-
 class ListPsarcDataResponse(BaseResponse):
     """Response model for listing PSARC data entries."""
 
@@ -238,19 +231,11 @@ class ListPsarcDataResponse(BaseResponse):
     limit: int = Field(..., description="Maximum number of entries returned")
 
 
-class SearchSongsResponse(BaseResponse):
-    """Response model for searching songs."""
+class ToggleInGameResponse(BaseResponse):
+    """Response model for toggling the in-game status of a PSARC file."""
 
-    data: list[SongData] = Field(..., description="List of songs matching the search criteria")
-    total: int = Field(..., description="Total number of songs found")
-
-
-class StatsResponse(BaseResponse):
-    """Response model for database statistics."""
-
-    total_psarc_files: int = Field(..., description="Total number of PSARC files in the database")
-    total_songs: int = Field(..., description="Total number of songs in the database")
-    total_failed_files: int = Field(default=0, description="Total number of failed PSARC files in the database")
+    filename: str = Field(..., description="The filename that was toggled")
+    is_in_game: bool = Field(..., description="The new in-game status")
 
 
 class SyncResponse(BaseResponse):
@@ -272,8 +257,9 @@ class ListFailedPsarcResponse(BaseResponse):
     limit: int = Field(..., description="Maximum number of entries returned")
 
 
-class ToggleInGameResponse(BaseResponse):
-    """Response model for toggling the in-game status of a PSARC file."""
+class StatsResponse(BaseResponse):
+    """Response model for database statistics."""
 
-    filename: str = Field(..., description="The filename that was toggled")
-    is_in_game: bool = Field(..., description="The new in-game status")
+    total_psarc_files: int = Field(..., description="Total number of PSARC files in the database")
+    total_songs: int = Field(..., description="Total number of songs in the database")
+    total_failed_files: int = Field(default=0, description="Total number of failed PSARC files in the database")

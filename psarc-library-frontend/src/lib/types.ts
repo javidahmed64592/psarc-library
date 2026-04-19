@@ -88,10 +88,9 @@ export interface ListPsarcDataResponse extends BaseResponse {
   limit: number;
 }
 
-export interface StatsResponse extends BaseResponse {
-  total_psarc_files: number;
-  total_songs: number;
-  total_failed_files: number;
+export interface ToggleInGameResponse extends BaseResponse {
+  filename: string;
+  is_in_game: boolean;
 }
 
 export interface SyncResponse extends BaseResponse {
@@ -109,7 +108,8 @@ export interface ListFailedPsarcResponse extends BaseResponse {
   limit: number;
 }
 
-export interface ToggleInGameResponse extends BaseResponse {
-  filename: string;
-  is_in_game: boolean;
+export interface StatsResponse extends BaseResponse {
+  total_psarc_files: number;
+  total_songs: number;
+  total_failed_files: number;
 }
