@@ -15,9 +15,19 @@ const Navigation = () => {
 
   const navItems = [
     {
-      name: "Home",
-      href: "/home",
-      active: pathname === "/home",
+      name: "Songs",
+      href: "/songs",
+      active: pathname === "/songs",
+    },
+    {
+      name: "Failures",
+      href: "/failures",
+      active: pathname === "/failures",
+    },
+    {
+      name: "Validate",
+      href: "/validate",
+      active: pathname === "/validate",
     },
   ];
 
@@ -59,7 +69,7 @@ const Navigation = () => {
               const normalized = (pathname || "").replace(/\/$/, "") || "/";
               const isActive =
                 normalized === item.href ||
-                (item.href === "/home" && normalized === "/");
+                (item.href === "/songs" && normalized === "/");
 
               return (
                 <Link
@@ -139,7 +149,7 @@ const Navigation = () => {
               const normalized = (pathname || "").replace(/\/$/, "") || "/";
               const isActive =
                 normalized === item.href ||
-                (item.href === "/home" && normalized === "/");
+                (item.href === "/songs" && normalized === "/");
 
               return (
                 <Link

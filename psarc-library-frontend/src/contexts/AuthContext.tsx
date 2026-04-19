@@ -47,10 +47,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    // Redirect to home page if authenticated and on login page
+    // Redirect to songs page if authenticated and on login page
     if (isAuthenticated && isLoginPage && !hasRedirected.current) {
       hasRedirected.current = true;
-      router.replace("/home/");
+      router.replace("/songs/");
       return;
     }
 
