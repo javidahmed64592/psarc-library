@@ -1,5 +1,22 @@
-# Multi-stage Dockerfile for Python Template Server
-# Stage 1: Backend build stage - build wheel using uv
+# Multi-stage Dockerfile for PSARC Library
+# Stage 1: Frontend build stage - build Next.js static export
+FROM node:25-alpine AS frontend-builder
+
+WORKDIR /frontend
+
+# Copy frontend package files
+COPY psarc-library-frontend/package*.json ./
+
+# Install dependencies
+RUN npm ci
+
+# Copy frontend source
+COPY psarc-library-frontend/ ./
+
+# Build static export
+RUN npm run build
+
+# Stage 2: Backend build stage - build wheel using uv
 FROM python:3.13-slim AS backend-builder
 
 WORKDIR /build
@@ -14,10 +31,13 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 COPY psarc_library/ ./psarc_library/
 COPY pyproject.toml .here LICENSE README.md ./
 
+# Copy built frontend from previous stage
+COPY --from=frontend-builder /frontend/out ./static/
+
 # Build the wheel
 RUN uv build --wheel
 
-# Stage 2: Runtime stage
+# Stage 3: Runtime stage
 FROM python:3.13-slim
 
 WORKDIR /app
@@ -43,6 +63,7 @@ RUN mkdir -p /app/logs
 
 # Copy included files from installed wheel to app directory
 RUN SITE_PACKAGES_DIR=$(find /usr/local/lib -name "site-packages" -type d | head -1) && \
+    cp -r "${SITE_PACKAGES_DIR}/static" /app/ && \
     cp "${SITE_PACKAGES_DIR}/.here" /app/.here
 
 # Create startup script
