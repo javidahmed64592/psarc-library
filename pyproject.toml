@@ -61,7 +61,7 @@ addopts = [
     "term-missing",
 ]
 env = [
-    "PSARC_DIR=/path/to/steamapps/common/Rocksmith2014/dlc/",
+    "GAME_DIR=/path/to/steamapps/common/Rocksmith2014/",
     "PSARC_TOC_DECRYPTION_KEY=decryption_key",
 ]
 

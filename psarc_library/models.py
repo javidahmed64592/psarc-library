@@ -221,6 +221,25 @@ class FailedPsarcEntry(BaseModel):
     raw_data: str | None = Field(None, description="Any raw data that could be extracted before failure.")
 
 
+# General Database Models
+class DatabaseSyncStats(BaseModel):
+    """Model representing statistics about a database synchronization operation."""
+
+    processed: int = Field(..., description="Number of PSARC files processed during sync.")
+    added: int = Field(..., description="Number of new PSARC files added to the database.")
+    failed: int = Field(..., description="Number of PSARC files that failed to parse during sync.")
+    skipped: int = Field(..., description="Number of PSARC files skipped because they were already in the database.")
+    cleaned: int = Field(..., description="Number of failed entries cleaned up for missing files.")
+
+
+class DatabaseStats(BaseModel):
+    """Model representing general statistics about the PSARC database."""
+
+    total_psarc_files: int = Field(..., description="Total number of PSARC files in the database.")
+    total_songs: int = Field(..., description="Total number of songs in the database.")
+    total_failed_files: int = Field(default=0, description="Total number of failed PSARC files in the database.")
+
+
 # API Response Models
 class ListPsarcDataResponse(BaseResponse):
     """Response model for listing PSARC data entries."""

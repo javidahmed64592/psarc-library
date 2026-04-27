@@ -13,6 +13,8 @@ from sqlmodel import Field, Relationship, Session, SQLModel, create_engine, sele
 
 from psarc_library.constants import CACHE_MAXSIZE, CACHE_TTL
 from psarc_library.models import (
+    DatabaseStats,
+    DatabaseSyncStats,
     FailedPsarcEntry,
     PsarcData,
     PsarcDatabaseConfig,
@@ -183,37 +185,31 @@ class FailedPsarcDB(SQLModel, table=True):
 class DatabaseManager:
     """Manager class for database operations."""
 
-    def __init__(self, db_config: PsarcDatabaseConfig, psarc_dir: Path) -> None:
+    def __init__(self, db_config: PsarcDatabaseConfig, base_songs_file: Path, dlc_songs_dir: Path) -> None:
         """Initialize the database manager."""
         self.db_config = db_config
-        self.psarc_dir = psarc_dir
+        self.base_songs_file = base_songs_file
+        self.dlc_songs_dir = dlc_songs_dir
         self._cache: TTLCache = TTLCache(maxsize=CACHE_MAXSIZE, ttl=CACHE_TTL)
 
-        logger.info("Creating database directory: %s", self.db_config.db_directory)
+        logger.info("Using database directory: %s", self.db_config.db_directory)
         Path(self.db_config.db_directory).mkdir(parents=True, exist_ok=True)
 
         logger.info("Initializing database with URL: %s", self.db_config.db_url)
         self.engine = create_engine(self.db_config.db_url, echo=False)
         SQLModel.metadata.create_all(self.engine)
 
-        logger.info("Adding initial entries from PSARC directory: %s", self.psarc_dir)
-        self._initialize_database()
+        self.sync()
+
+    @property
+    def psarc_files(self) -> list[Path]:
+        """Get a list of all PSARC files in the directory."""
+        return [self.base_songs_file, *list(self.dlc_songs_dir.glob("*.psarc"))]
 
     def _clear_cache(self) -> None:
         """Clear all cached results."""
         self._cache.clear()
         logger.debug("Cache cleared")
-
-    def _initialize_database(self) -> None:
-        """Scan the PSARC directory and add entries to the database."""
-        psarc_files = list(self.psarc_dir.glob("*.psarc"))
-        logger.info("Found %d PSARC files in directory", len(psarc_files))
-
-        for psarc_file in psarc_files:
-            if self.get_psarc_data_by_filename(filename=psarc_file.name):
-                continue
-
-            self._process_psarc_file(psarc_file=psarc_file)
 
     def _process_psarc_file(self, psarc_file: Path) -> bool:
         """Process a single PSARC file and add it to the database or record failure.
@@ -400,52 +396,6 @@ class DatabaseManager:
             logger.info("Toggled is_in_game for '%s' to %s", filename, new_value)
             return new_value
 
-    def sync_psarc_directory(self) -> dict[str, int]:
-        """Rescan the PSARC directory and add any new files.
-
-        Also cleans up failed entries for files that no longer exist.
-
-        :return dict: Statistics about the sync operation
-        """
-        logger.info("Starting sync of PSARC directory: %s", self.psarc_dir)
-        psarc_files = list(self.psarc_dir.glob("*.psarc"))
-        existing_filenames = {f.name for f in psarc_files}
-        stats = {"processed": 0, "added": 0, "failed": 0, "skipped": 0, "cleaned": 0}
-
-        # Process existing files
-        for psarc_file in psarc_files:
-            stats["processed"] += 1
-
-            # Skip if already in database
-            if self.get_psarc_data_by_filename(filename=psarc_file.name):
-                stats["skipped"] += 1
-                continue
-
-            # Process the file
-            if self._process_psarc_file(psarc_file=psarc_file):
-                stats["added"] += 1
-            else:
-                stats["failed"] += 1
-
-        # Clean up failed entries for files that no longer exist
-        all_failed = self.get_all_failed_psarc(skip=0, limit=10000)  # Get all failed entries
-        for failed_entry in all_failed:
-            if failed_entry.filename not in existing_filenames:
-                logger.info("Cleaning up failed entry for missing file: %s", failed_entry.filename)
-                if self.delete_failed_psarc_by_filename(filename=failed_entry.filename):
-                    stats["cleaned"] += 1
-
-        logger.info(
-            "Sync completed: %d processed, %d added, %d failed, %d skipped, %d cleaned",
-            stats["processed"],
-            stats["added"],
-            stats["failed"],
-            stats["skipped"],
-            stats["cleaned"],
-        )
-        self._clear_cache()  # Cache invalidation after sync operation
-        return stats
-
     @cache_method
     def get_all_failed_psarc(self, skip: int = 0, limit: int = 100) -> list[FailedPsarcEntry]:
         """Get all failed PSARC entries with pagination.
@@ -477,32 +427,53 @@ class DatabaseManager:
             self._clear_cache()  # Cache invalidation for failed entries
             return True
 
-    @cache_method
-    def count_failed_psarc(self) -> int:
-        """Count total number of failed PSARC entries.
+    def sync(self) -> DatabaseSyncStats:
+        """Rescan the PSARC files and add any new files.
 
-        :return int: Count of failed entries
+        Also cleans up failed entries for files that no longer exist.
+
+        :return DatabaseSyncStats: Statistics about the sync operation
+        """
+        logger.info("Syncing base songs from file: %s", self.base_songs_file)
+        logger.info("Syncing DLC songs from PSARC directory: %s", self.dlc_songs_dir)
+        existing_filenames = {f.name for f in self.psarc_files}
+        stats = DatabaseSyncStats(processed=0, added=0, failed=0, skipped=0, cleaned=0)
+
+        # Process existing files
+        for psarc_file in self.psarc_files:
+            stats.processed += 1
+
+            # Skip if already in database
+            if self.get_psarc_data_by_filename(filename=psarc_file.name):
+                stats.skipped += 1
+                continue
+
+            # Process the file
+            if self._process_psarc_file(psarc_file=psarc_file):
+                stats.added += 1
+            else:
+                stats.failed += 1
+
+        # Clean up failed entries for files that no longer exist
+        all_failed = self.get_all_failed_psarc(skip=0, limit=10000)  # Get all failed entries
+        for failed_entry in all_failed:
+            if failed_entry.filename not in existing_filenames:
+                logger.info("Cleaning up failed entry for missing file: %s", failed_entry.filename)
+                if self.delete_failed_psarc_by_filename(filename=failed_entry.filename):
+                    stats.cleaned += 1
+
+        self._clear_cache()  # Cache invalidation after sync operation
+        return stats
+
+    @cache_method
+    def get_database_stats(self) -> DatabaseStats:
+        """Get database statistics.
+
+        :return DatabaseStats: Statistics about the database
         """
         with Session(self.engine) as session:
-            statement = select(FailedPsarcDB)
-            count = len(session.exec(statement).all())
-            logger.info("Total failed PSARC entries: %d", count)
-            return count
-
-    @cache_method
-    def count_psarc_data(self) -> int:
-        """Count total number of PSARC data entries."""
-        with Session(self.engine) as session:
-            statement = select(PsarcDataDB)
-            count = len(session.exec(statement).all())
-            logger.info("Total PSARC data entries: %d", count)
-            return count
-
-    @cache_method
-    def count_songs(self) -> int:
-        """Count total number of songs."""
-        with Session(self.engine) as session:
-            statement = select(SongDataDB)
-            count = len(session.exec(statement).all())
-            logger.info("Total songs: %d", count)
-            return count
+            return DatabaseStats(
+                total_psarc_files=len(session.exec(select(PsarcDataDB)).all()),
+                total_songs=len(session.exec(select(SongDataDB)).all()),
+                total_failed_files=len(session.exec(select(FailedPsarcDB)).all()),
+            )
