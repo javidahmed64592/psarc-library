@@ -9,7 +9,7 @@ from fastapi import HTTPException, Query, Request
 from python_template_server.models import ResponseCode
 from python_template_server.template_server import TemplateServer
 
-from psarc_library.constants import PSARC_DIR_ENV_VAR
+from psarc_library.constants import GAME_DIR_ENV_VAR
 from psarc_library.database import DatabaseManager
 from psarc_library.models import (
     ListFailedPsarcResponse,
@@ -37,13 +37,15 @@ class PsarcLibraryServer(TemplateServer):
             config=config,
         )
 
-        if not (psarc_dir := os.getenv(PSARC_DIR_ENV_VAR)):
-            error_msg = f"Environment variable not set: {PSARC_DIR_ENV_VAR}"
+        if not (game_dir := os.getenv(GAME_DIR_ENV_VAR)):
+            error_msg = f"Environment variable not set: {GAME_DIR_ENV_VAR}"
             logger.error(error_msg)
             raise SystemExit(error_msg)
 
-        self.psarc_dir = Path(psarc_dir)
-        self.db_manager = DatabaseManager(db_config=self.config.db, psarc_dir=self.psarc_dir)
+        self.game_dir = Path(game_dir)
+        self.db_manager = DatabaseManager(
+            db_config=self.config.db, base_psarc_file=self.game_dir / "songs.psarc", psarc_dir=self.game_dir / "dlc"
+        )
 
     def validate_config(self, config_data: dict[str, Any]) -> PsarcLibraryServerConfig:
         """Validate configuration data against the PsarcLibraryServerConfig model.

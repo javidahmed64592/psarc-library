@@ -14,14 +14,14 @@ services:
       # Load API token hash from .env file (optional - will be generated if missing)
       - API_TOKEN_HASH=${API_TOKEN_HASH:-}
       # PSARC variables
-      - PSARC_DIR=/psarc
+      - GAME_DIR=/game
       - PSARC_TOC_DECRYPTION_KEY=${PSARC_TOC_DECRYPTION_KEY:-}
     volumes:
       - ./.env:/app/.env
       - ./certs:/app/certs
       - ./logs:/app/logs
       - ./data:/app/data
-      - ${PSARC_DIR}:/psarc:ro
+      - ${GAME_DIR}:/game:ro
     restart: unless-stopped
     healthcheck:
       test:

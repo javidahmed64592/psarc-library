@@ -183,9 +183,10 @@ class FailedPsarcDB(SQLModel, table=True):
 class DatabaseManager:
     """Manager class for database operations."""
 
-    def __init__(self, db_config: PsarcDatabaseConfig, psarc_dir: Path) -> None:
+    def __init__(self, db_config: PsarcDatabaseConfig, base_psarc_file: Path, psarc_dir: Path) -> None:
         """Initialize the database manager."""
         self.db_config = db_config
+        self.base_psarc_file = base_psarc_file
         self.psarc_dir = psarc_dir
         self._cache: TTLCache = TTLCache(maxsize=CACHE_MAXSIZE, ttl=CACHE_TTL)
 
@@ -199,6 +200,11 @@ class DatabaseManager:
         logger.info("Adding initial entries from PSARC directory: %s", self.psarc_dir)
         self._initialize_database()
 
+    @property
+    def psarc_files(self) -> list[Path]:
+        """Get a list of all PSARC files in the directory."""
+        return [self.base_psarc_file, *list(self.psarc_dir.glob("*.psarc"))]
+
     def _clear_cache(self) -> None:
         """Clear all cached results."""
         self._cache.clear()
@@ -206,10 +212,9 @@ class DatabaseManager:
 
     def _initialize_database(self) -> None:
         """Scan the PSARC directory and add entries to the database."""
-        psarc_files = list(self.psarc_dir.glob("*.psarc"))
-        logger.info("Found %d PSARC files in directory", len(psarc_files))
+        logger.info("Found %d PSARC files in directory", len(self.psarc_files))
 
-        for psarc_file in psarc_files:
+        for psarc_file in self.psarc_files:
             if self.get_psarc_data_by_filename(filename=psarc_file.name):
                 continue
 
@@ -408,12 +413,11 @@ class DatabaseManager:
         :return dict: Statistics about the sync operation
         """
         logger.info("Starting sync of PSARC directory: %s", self.psarc_dir)
-        psarc_files = list(self.psarc_dir.glob("*.psarc"))
-        existing_filenames = {f.name for f in psarc_files}
+        existing_filenames = {f.name for f in self.psarc_files}
         stats = {"processed": 0, "added": 0, "failed": 0, "skipped": 0, "cleaned": 0}
 
         # Process existing files
-        for psarc_file in psarc_files:
+        for psarc_file in self.psarc_files:
             stats["processed"] += 1
 
             # Skip if already in database
