@@ -197,8 +197,9 @@ class DatabaseManager:
         self.engine = create_engine(self.db_config.db_url, echo=False)
         SQLModel.metadata.create_all(self.engine)
 
-        logger.info("Adding initial entries from PSARC directory: %s", self.psarc_dir)
-        self._initialize_database()
+        logger.info("Adding base songs from file: %s", self.base_psarc_file)
+        logger.info("Adding DLC songs from PSARC directory: %s", self.psarc_dir)
+        self.sync()
 
     @property
     def psarc_files(self) -> list[Path]:
@@ -209,16 +210,6 @@ class DatabaseManager:
         """Clear all cached results."""
         self._cache.clear()
         logger.debug("Cache cleared")
-
-    def _initialize_database(self) -> None:
-        """Scan the PSARC directory and add entries to the database."""
-        logger.info("Found %d PSARC files in directory", len(self.psarc_files))
-
-        for psarc_file in self.psarc_files:
-            if self.get_psarc_data_by_filename(filename=psarc_file.name):
-                continue
-
-            self._process_psarc_file(psarc_file=psarc_file)
 
     def _process_psarc_file(self, psarc_file: Path) -> bool:
         """Process a single PSARC file and add it to the database or record failure.
@@ -405,14 +396,45 @@ class DatabaseManager:
             logger.info("Toggled is_in_game for '%s' to %s", filename, new_value)
             return new_value
 
-    def sync_psarc_directory(self) -> dict[str, int]:
-        """Rescan the PSARC directory and add any new files.
+    @cache_method
+    def get_all_failed_psarc(self, skip: int = 0, limit: int = 100) -> list[FailedPsarcEntry]:
+        """Get all failed PSARC entries with pagination.
+
+        :param int skip: Number of entries to skip
+        :param int limit: Maximum number of entries to return
+        :return list: List of FailedPsarcEntry objects
+        """
+        with Session(self.engine) as session:
+            statement = select(FailedPsarcDB).offset(skip).limit(limit)
+            failed_list = session.exec(statement).all()
+            logger.info("Retrieved %d failed PSARC entries", len(failed_list))
+            return [failed.to_failed_entry() for failed in failed_list]
+
+    def delete_failed_psarc_by_filename(self, filename: str) -> bool:
+        """Delete a failed PSARC entry by filename.
+
+        :param str filename: The filename of the failed entry to delete
+        :return bool: True if deleted, False if not found
+        """
+        with Session(self.engine) as session:
+            statement = select(FailedPsarcDB).where(FailedPsarcDB.filename == filename)
+            if not (failed_db := session.exec(statement).first()):
+                return False
+
+            logger.info("Deleting failed PSARC entry by filename: %s", filename)
+            session.delete(failed_db)
+            session.commit()
+            self._clear_cache()  # Cache invalidation for failed entries
+            return True
+
+    def sync(self) -> dict[str, int]:
+        """Rescan the PSARC files and add any new files.
 
         Also cleans up failed entries for files that no longer exist.
 
         :return dict: Statistics about the sync operation
         """
-        logger.info("Starting sync of PSARC directory: %s", self.psarc_dir)
+        logger.info("Starting sync of PSARC files: %s", self.psarc_dir)
         existing_filenames = {f.name for f in self.psarc_files}
         stats = {"processed": 0, "added": 0, "failed": 0, "skipped": 0, "cleaned": 0}
 
@@ -449,37 +471,6 @@ class DatabaseManager:
         )
         self._clear_cache()  # Cache invalidation after sync operation
         return stats
-
-    @cache_method
-    def get_all_failed_psarc(self, skip: int = 0, limit: int = 100) -> list[FailedPsarcEntry]:
-        """Get all failed PSARC entries with pagination.
-
-        :param int skip: Number of entries to skip
-        :param int limit: Maximum number of entries to return
-        :return list: List of FailedPsarcEntry objects
-        """
-        with Session(self.engine) as session:
-            statement = select(FailedPsarcDB).offset(skip).limit(limit)
-            failed_list = session.exec(statement).all()
-            logger.info("Retrieved %d failed PSARC entries", len(failed_list))
-            return [failed.to_failed_entry() for failed in failed_list]
-
-    def delete_failed_psarc_by_filename(self, filename: str) -> bool:
-        """Delete a failed PSARC entry by filename.
-
-        :param str filename: The filename of the failed entry to delete
-        :return bool: True if deleted, False if not found
-        """
-        with Session(self.engine) as session:
-            statement = select(FailedPsarcDB).where(FailedPsarcDB.filename == filename)
-            if not (failed_db := session.exec(statement).first()):
-                return False
-
-            logger.info("Deleting failed PSARC entry by filename: %s", filename)
-            session.delete(failed_db)
-            session.commit()
-            self._clear_cache()  # Cache invalidation for failed entries
-            return True
 
     @cache_method
     def count_failed_psarc(self) -> int:
