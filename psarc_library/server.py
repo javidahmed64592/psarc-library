@@ -113,7 +113,6 @@ class PsarcLibraryServer(TemplateServer):
         total = self.db_manager.count_psarc_data()
         return ListPsarcDataResponse(
             message=f"Retrieved {len(psarc_data_list)} PSARC data entries",
-            timestamp=ListPsarcDataResponse.current_timestamp(),
             data=psarc_data_list,
             total=total,
             skip=skip,
@@ -133,7 +132,6 @@ class PsarcLibraryServer(TemplateServer):
             raise HTTPException(status_code=ResponseCode.NOT_FOUND, detail=f"PSARC file '{filename}' not found")
         return ToggleInGameResponse(
             message=f"Toggled in-game status for '{filename}' to {new_value}",
-            timestamp=ToggleInGameResponse.current_timestamp(),
             filename=filename,
             is_in_game=new_value,
         )
@@ -153,7 +151,6 @@ class PsarcLibraryServer(TemplateServer):
         )
         return SyncResponse(
             message=message,
-            timestamp=SyncResponse.current_timestamp(),
             files_processed=stats["processed"],
             files_added=stats["added"],
             files_failed=stats["failed"],
@@ -175,7 +172,6 @@ class PsarcLibraryServer(TemplateServer):
         total = self.db_manager.count_failed_psarc()
         return ListFailedPsarcResponse(
             message=f"Retrieved {len(failed_list)} failed PSARC entries",
-            timestamp=ListFailedPsarcResponse.current_timestamp(),
             data=failed_list,
             total=total,
             skip=skip,
@@ -193,7 +189,6 @@ class PsarcLibraryServer(TemplateServer):
         total_failed = self.db_manager.count_failed_psarc()
         return StatsResponse(
             message="Statistics retrieved successfully",
-            timestamp=StatsResponse.current_timestamp(),
             total_psarc_files=total_psarc,
             total_songs=total_songs,
             total_failed_files=total_failed,
