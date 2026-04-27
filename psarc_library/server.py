@@ -44,8 +44,24 @@ class PsarcLibraryServer(TemplateServer):
 
         self.game_dir = Path(game_dir)
         self.db_manager = DatabaseManager(
-            db_config=self.config.db, base_psarc_file=self.game_dir / "songs.psarc", psarc_dir=self.game_dir / "dlc"
+            db_config=self.config.db, base_songs_file=self.base_songs_file, dlc_songs_dir=self.dlc_songs_dir
         )
+
+    @property
+    def base_songs_file(self) -> Path:
+        """Get the path to the base songs.psarc file.
+
+        :return Path: The path to the base songs.psarc file
+        """
+        return self.game_dir / "songs.psarc"
+
+    @property
+    def dlc_songs_dir(self) -> Path:
+        """Get the path to the DLC songs directory.
+
+        :return Path: The path to the DLC songs directory
+        """
+        return self.game_dir / "dlc"
 
     def validate_config(self, config_data: dict[str, Any]) -> PsarcLibraryServerConfig:
         """Validate configuration data against the PsarcLibraryServerConfig model.
@@ -112,11 +128,10 @@ class PsarcLibraryServer(TemplateServer):
         :return ListPsarcDataResponse: Response containing list of PSARC data entries
         """
         psarc_data_list = self.db_manager.get_all_psarc_data(skip=skip, limit=limit)
-        total = self.db_manager.count_psarc_data()
         return ListPsarcDataResponse(
             message=f"Retrieved {len(psarc_data_list)} PSARC data entries",
             data=psarc_data_list,
-            total=total,
+            total=self.db_manager.get_database_stats().total_psarc_files,
             skip=skip,
             limit=limit,
         )
@@ -146,18 +161,19 @@ class PsarcLibraryServer(TemplateServer):
         :param Request request: The incoming HTTP request
         :return SyncResponse: Response containing sync statistics
         """
-        stats = self.db_manager.sync_psarc_directory()
+        stats = self.db_manager.sync()
         message = (
-            f"Sync completed: {stats['added']} added, {stats['failed']} failed, "
-            f"{stats['skipped']} skipped, {stats['cleaned']} cleaned"
+            f"Sync completed: {stats.processed} processed, {stats.added} added, {stats.failed} failed, "
+            f"{stats.skipped} skipped, {stats.cleaned} cleaned"
         )
+        logger.info(message)
         return SyncResponse(
             message=message,
-            files_processed=stats["processed"],
-            files_added=stats["added"],
-            files_failed=stats["failed"],
-            files_skipped=stats["skipped"],
-            files_cleaned=stats["cleaned"],
+            files_processed=stats.processed,
+            files_added=stats.added,
+            files_failed=stats.failed,
+            files_skipped=stats.skipped,
+            files_cleaned=stats.cleaned,
         )
 
     async def list_failed_psarc(
@@ -171,7 +187,7 @@ class PsarcLibraryServer(TemplateServer):
         :return ListFailedPsarcResponse: Response containing list of failed PSARC entries
         """
         failed_list = self.db_manager.get_all_failed_psarc(skip=skip, limit=limit)
-        total = self.db_manager.count_failed_psarc()
+        total = self.db_manager.get_database_stats().total_failed_files
         return ListFailedPsarcResponse(
             message=f"Retrieved {len(failed_list)} failed PSARC entries",
             data=failed_list,
@@ -186,12 +202,16 @@ class PsarcLibraryServer(TemplateServer):
         :param Request request: The incoming HTTP request
         :return StatsResponse: Response containing database statistics
         """
-        total_psarc = self.db_manager.count_psarc_data()
-        total_songs = self.db_manager.count_songs()
-        total_failed = self.db_manager.count_failed_psarc()
+        stats = self.db_manager.get_database_stats()
+        logger.info(
+            "Database stats: %d total PSARC files, %d total songs, %d total failed files",
+            stats.total_psarc_files,
+            stats.total_songs,
+            stats.total_failed_files,
+        )
         return StatsResponse(
             message="Statistics retrieved successfully",
-            total_psarc_files=total_psarc,
-            total_songs=total_songs,
-            total_failed_files=total_failed,
+            total_psarc_files=stats.total_psarc_files,
+            total_songs=stats.total_songs,
+            total_failed_files=stats.total_failed_files,
         )
