@@ -75,46 +75,51 @@ class PsarcLibraryServer(TemplateServer):
     def setup_routes(self) -> None:
         """Add custom API routes."""
         # PSARC data endpoints (read-only)
-        self.add_authenticated_route(
+        self.add_route(
             endpoint="/psarc",
             handler_function=self.list_psarc_data,
             response_model=ListPsarcDataResponse,
             methods=["GET"],
             limited=True,
+            authentication_required=True,
         )
-        self.add_authenticated_route(
+        self.add_route(
             endpoint="/psarc/toggle-in-game",
             handler_function=self.toggle_in_game,
             response_model=ToggleInGameResponse,
             methods=["PATCH"],
             limited=True,
+            authentication_required=True,
         )
 
         # Sync and validation endpoints
-        self.add_authenticated_route(
+        self.add_route(
             endpoint="/sync",
             handler_function=self.sync_psarc_directory,
             response_model=SyncResponse,
             methods=["POST"],
             limited=True,
+            authentication_required=True,
         )
 
         # Failed PSARC endpoints
-        self.add_authenticated_route(
+        self.add_route(
             endpoint="/failures",
             handler_function=self.list_failed_psarc,
             response_model=ListFailedPsarcResponse,
             methods=["GET"],
             limited=True,
+            authentication_required=True,
         )
 
         # Stats endpoint
-        self.add_authenticated_route(
+        self.add_route(
             endpoint="/stats",
             handler_function=self.get_stats,
             response_model=StatsResponse,
             methods=["GET"],
             limited=True,
+            authentication_required=True,
         )
 
     async def list_psarc_data(
