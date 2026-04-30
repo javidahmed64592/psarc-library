@@ -1,5 +1,4 @@
 services:
-  # Psarc Library
   psarc-library:
     image: ${IMAGE:-ghcr.io/javidahmed64592/psarc-library:latest}
     build:
@@ -11,9 +10,7 @@ services:
     environment:
       - HOST=${HOST:-0.0.0.0}
       - PORT=${PORT:-443}
-      # Load API token hash from .env file (optional - will be generated if missing)
       - API_TOKEN_HASH=${API_TOKEN_HASH:-}
-      # PSARC variables
       - GAME_DIR=/game
       - PSARC_TOC_DECRYPTION_KEY=${PSARC_TOC_DECRYPTION_KEY:-}
     volumes:

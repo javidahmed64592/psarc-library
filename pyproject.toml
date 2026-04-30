@@ -61,6 +61,7 @@ addopts = [
     "term-missing",
 ]
 env = [
+    "API_TOKEN_HASH=token",
     "GAME_DIR=/path/to/steamapps/common/Rocksmith2014/",
     "PSARC_TOC_DECRYPTION_KEY=decryption_key",
 ]
