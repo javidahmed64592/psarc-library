@@ -144,3 +144,85 @@ This project uses Sphinx for documentation. To build the documentation:
    uv run sphinx-build -M html docs/source/ docs/build/
 
 The built documentation will be available at ``docs/build/html/index.html``.
+
+----
+
+Frontend (Next.js)
+------------------
+
+.. image:: https://img.shields.io/badge/React-19-61DAFB?style=flat-square&logo=react&logoColor=black
+   :target: https://reactjs.org/
+   :alt: React
+
+.. image:: https://img.shields.io/badge/Node.js-25+-339933?style=flat-square&logo=node.js&logoColor=white
+   :target: https://nodejs.org/
+   :alt: Node.js
+
+.. image:: https://img.shields.io/badge/TypeScript-5-blue?style=flat-square&logo=typescript&logoColor=white
+   :target: https://www.typescriptlang.org/
+   :alt: TypeScript
+
+.. image:: https://img.shields.io/badge/Next.js-16-black?style=flat-square&logo=next.js&logoColor=white
+   :target: https://nextjs.org/
+   :alt: Next.js
+
+.. image:: https://img.shields.io/badge/Tailwind_CSS-4-38B2AC?style=flat-square&logo=tailwind-css&logoColor=white
+   :target: https://tailwindcss.com/
+   :alt: Tailwind CSS
+
+.. image:: https://img.shields.io/badge/ESLint-9-4B32C3?style=flat-square&logo=eslint&logoColor=white
+   :target: https://eslint.org/
+   :alt: ESLint
+
+.. image:: https://img.shields.io/badge/Prettier-3-F7B93E?style=flat-square&logo=prettier&logoColor=black
+   :target: https://prettier.io/
+   :alt: Prettier
+
+Ensure you run the following commands in the frontend directory:
+
+.. code-block:: sh
+
+   cd |repo_name|-frontend
+
+Installing Dependencies
+~~~~~~~~~~~~~~~~~~~~~~~
+
+Install the required dependencies using ``npm``:
+
+.. code-block:: sh
+
+   npm install
+
+Running the Frontend
+~~~~~~~~~~~~~~~~~~~~
+
+Ensure the backend server is running and then start the frontend development server:
+
+.. code-block:: sh
+
+   npm run dev
+
+The frontend will be available at ``http://localhost:3000``.
+
+Testing, Linting, and Type Checking
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. code-block:: sh
+
+   # Run all quality checks
+   npm run quality
+   npm run quality:fix
+
+   # Lint code
+   npm run lint
+   npm run lint:fix
+
+   # Format code
+   npm run format
+   npm run format:fix
+
+   # Type check
+   npm run type-check
+
+   # Run tests
+   npm run test
